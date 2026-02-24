@@ -6,6 +6,7 @@ export interface User {
   email: string
   avatarUrl: string | null
   totalScore: number
+  emailVerified: boolean
   createdAt: string
 }
 

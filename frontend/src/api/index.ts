@@ -35,6 +35,25 @@ export const authApi = {
       body: JSON.stringify({ email, password }),
     }),
   me: () => request<{ user: User }>('/auth/me'),
+  verifyEmail: (token: string) =>
+    request<{ message: string }>(`/auth/verify-email?token=${encodeURIComponent(token)}`),
+  resendVerification: () =>
+    request<{ message: string }>('/auth/resend-verification', { method: 'POST' }),
+  forgotPassword: (email: string) =>
+    request<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token: string, password: string) =>
+    request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ message: string }>('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
 }
 
 // Friends

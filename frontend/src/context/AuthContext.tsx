@@ -8,6 +8,7 @@ interface AuthContextValue {
   loading: boolean
   login: (token: string, user: User) => void
   logout: () => void
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -44,8 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
+  async function refreshUser() {
+    try {
+      const { user } = await authApi.me()
+      setUser(user)
+    } catch {
+      // silently ignore — token may have expired
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

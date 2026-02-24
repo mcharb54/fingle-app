@@ -11,6 +11,7 @@ export default function Register() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -19,12 +20,36 @@ export default function Register() {
     try {
       const { token, user } = await authApi.register(username, email, password)
       login(token, user)
-      navigate('/')
+      setRegisteredEmail(email)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (registeredEmail) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-sm text-center">
+          <div className="text-6xl mb-6">📬</div>
+          <h2 className="text-2xl font-black text-white mb-3">Check your inbox</h2>
+          <p className="text-gray-400 text-sm mb-2">
+            We sent a verification link to
+          </p>
+          <p className="text-brand-400 font-semibold mb-6">{registeredEmail}</p>
+          <p className="text-gray-500 text-xs mb-8">
+            You can start playing right away — just verify your email when you get a chance.
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full bg-brand-500 hover:bg-brand-400 text-white font-bold py-3 rounded-xl transition-colors"
+          >
+            Start Playing
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
