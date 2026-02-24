@@ -1,4 +1,8 @@
 FROM node:20-alpine AS base
+
+# Fix Prisma + Alpine OpenSSL compatibility
+RUN apk add --no-cache openssl openssl-dev libc6-compat
+
 WORKDIR /app
 
 # Copy root workspace manifest
