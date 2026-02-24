@@ -84,7 +84,7 @@ export default function Feed() {
             </p>
           </div>
         ) : (
-          challenges.map((c) => <ChallengeCard key={c.id} challenge={c} />)
+          challenges.map((c) => <ChallengeCard key={c.id} challenge={c} isSent={tab === 'sent'} />)
         )}
       </div>
     </div>
