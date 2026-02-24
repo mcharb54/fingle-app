@@ -11,6 +11,7 @@ import SendPage from './pages/SendPage'
 import FriendsPage from './pages/FriendsPage'
 import ProfilePage from './pages/ProfilePage'
 import LeaderboardPage from './pages/LeaderboardPage'
+import AdminPage from './pages/AdminPage'
 import NavBar from './components/NavBar'
 
 function ProtectedLayout() {
@@ -34,6 +35,14 @@ function ProtectedLayout() {
   )
 }
 
+function AdminLayout() {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading…</div>
+  if (!user) return <Navigate to="/login" replace />
+  if (!user.isAdmin) return <Navigate to="/" replace />
+  return <AdminPage />
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -44,6 +53,7 @@ export default function App() {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/admin" element={<AdminLayout />} />
           <Route path="/*" element={<ProtectedLayout />} />
         </Routes>
       </BrowserRouter>

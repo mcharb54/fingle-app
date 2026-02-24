@@ -17,6 +17,8 @@ function sanitizeUser(user: {
   avatarUrl: string | null
   totalScore: number
   emailVerified: boolean
+  isAdmin: boolean
+  isBanned: boolean
   createdAt: Date
 }) {
   return {
@@ -26,6 +28,8 @@ function sanitizeUser(user: {
     avatarUrl: user.avatarUrl,
     totalScore: user.totalScore,
     emailVerified: user.emailVerified,
+    isAdmin: user.isAdmin,
+    isBanned: user.isBanned,
     createdAt: user.createdAt,
   }
 }
@@ -84,6 +88,11 @@ export async function login(req: Request, res: Response): Promise<void> {
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     res.status(401).json({ error: 'Invalid email or password' })
+    return
+  }
+
+  if (user.isBanned) {
+    res.status(403).json({ error: 'Account suspended. Contact support for help.' })
     return
   }
 

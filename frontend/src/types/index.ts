@@ -7,6 +7,20 @@ export interface User {
   avatarUrl: string | null
   totalScore: number
   emailVerified: boolean
+  isAdmin: boolean
+  isBanned: boolean
+  createdAt: string
+}
+
+export interface AdminUser {
+  id: string
+  username: string
+  email: string
+  avatarUrl: string | null
+  totalScore: number
+  emailVerified: boolean
+  isAdmin: boolean
+  isBanned: boolean
   createdAt: string
 }
 

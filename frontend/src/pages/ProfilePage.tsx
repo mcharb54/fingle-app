@@ -169,9 +169,19 @@ export default function ProfilePage() {
           )}
         </div>
 
+        {user.isAdmin && (
+          <a
+            href="/admin"
+            className="mt-4 w-full flex items-center justify-between bg-brand-500/10 border border-brand-500/30 hover:bg-brand-500/20 text-brand-400 font-semibold py-3 px-5 rounded-xl transition-colors"
+          >
+            <span>Admin Panel</span>
+            <span className="text-sm">→</span>
+          </a>
+        )}
+
         <button
           onClick={logout}
-          className="mt-8 w-full border border-red-500/50 text-red-400 hover:bg-red-500/10 font-semibold py-3 rounded-xl transition-colors"
+          className="mt-4 w-full border border-red-500/50 text-red-400 hover:bg-red-500/10 font-semibold py-3 rounded-xl transition-colors"
         >
           Sign out
         </button>

@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js'
 import friendRoutes from './routes/friends.js'
 import challengeRoutes from './routes/challenges.js'
 import leaderboardRoutes from './routes/leaderboard.js'
+import adminRoutes from './routes/admin.js'
 
 const app = express()
 const server = http.createServer(app)
@@ -41,6 +42,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/friends', friendRoutes)
 app.use('/api/challenges', challengeRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
+app.use('/api/admin', adminRoutes)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 

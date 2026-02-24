@@ -17,6 +17,8 @@ model User {
   avatarUrl     String?
   totalScore    Int      @default(0)
   emailVerified Boolean  @default(false)
+  isAdmin       Boolean  @default(false)
+  isBanned      Boolean  @default(false)
   createdAt     DateTime @default(now())
 
   sentChallenges             Challenge[]                @relation("Sent")

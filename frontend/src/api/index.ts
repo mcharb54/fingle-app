@@ -1,4 +1,4 @@
-import type { Challenge, FriendEntry, FriendRequest, PublicUser, User, FingerName } from '../types'
+import type { AdminUser, Challenge, FriendEntry, FriendRequest, PublicUser, User, FingerName } from '../types'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -102,4 +102,16 @@ export const challengesApi = {
 export const leaderboardApi = {
   get: (scope: 'global' | 'friends' = 'global') =>
     request<{ leaderboard: PublicUser[] }>(`/leaderboard?scope=${scope}`),
+}
+
+// Admin
+export const adminApi = {
+  getUsers: () => request<{ users: AdminUser[] }>('/admin/users'),
+  deleteUser: (id: string) => request<{ message: string }>(`/admin/users/${id}`, { method: 'DELETE' }),
+  toggleBan: (id: string) => request<{ user: AdminUser }>(`/admin/users/${id}/ban`, { method: 'PUT' }),
+  updateUser: (id: string, data: { username?: string; email?: string; totalScore?: number }) =>
+    request<{ user: AdminUser }>(`/admin/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 }
