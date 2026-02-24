@@ -31,11 +31,11 @@ export default function ChallengeCard({ challenge }: Props) {
       }`}
     >
       {/* Photo */}
-      <div className="aspect-[4/5] w-full relative">
+      <div className="w-full relative">
         <img
           src={challenge.photoUrl}
           alt="challenge"
-          className={`w-full h-full object-cover transition-all duration-300 ${
+          className={`w-full h-auto block bg-zinc-950 transition-all duration-300 ${
             !isAnswered ? 'blur-xl scale-105' : ''
           }`}
         />

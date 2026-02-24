@@ -73,7 +73,7 @@ export default function Feed() {
       <div className="p-4 space-y-4">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="rounded-2xl bg-zinc-900 animate-pulse aspect-[4/5]" />
+            <div key={i} className="rounded-2xl bg-zinc-900 animate-pulse h-72" />
           ))
         ) : challenges.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">

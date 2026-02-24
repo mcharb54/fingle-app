@@ -39,14 +39,14 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
     return
   }
 
-  const { receiverId, fingerCount, whichFingers } = req.body as {
-    receiverId?: string
+  const { receiverIds, fingerCount, whichFingers } = req.body as {
+    receiverIds?: string
     fingerCount?: string
     whichFingers?: string
   }
 
-  if (!receiverId || !fingerCount || !whichFingers) {
-    res.status(400).json({ error: 'receiverId, fingerCount and whichFingers are required' })
+  if (!receiverIds || !fingerCount || !whichFingers) {
+    res.status(400).json({ error: 'receiverIds, fingerCount and whichFingers are required' })
     return
   }
 
@@ -69,42 +69,69 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
     return
   }
 
-  // Verify friendship
-  const friendship = await prisma.friend.findFirst({
-    where: {
-      status: 'ACCEPTED',
-      OR: [
-        { initiatorId: req.userId!, receiverId },
-        { initiatorId: receiverId, receiverId: req.userId! },
-      ],
-    },
-  })
-  if (!friendship) {
-    res.status(403).json({ error: 'You can only challenge friends' })
+  let ids: string[]
+  try {
+    ids = JSON.parse(receiverIds) as string[]
+  } catch {
+    res.status(400).json({ error: 'receiverIds must be a JSON array' })
     return
   }
 
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: 'receiverIds must be a non-empty array' })
+    return
+  }
+
+  // Verify friendship for all recipients
+  for (const receiverId of ids) {
+    const friendship = await prisma.friend.findFirst({
+      where: {
+        status: 'ACCEPTED',
+        OR: [
+          { initiatorId: req.userId!, receiverId },
+          { initiatorId: receiverId, receiverId: req.userId! },
+        ],
+      },
+    })
+    if (!friendship) {
+      res.status(403).json({ error: `You can only challenge friends` })
+      return
+    }
+  }
+
+  // Upload photo once, share URL across all challenges
   const photoUrl = await uploadPhoto(file.buffer)
 
-  const challenge = await prisma.challenge.create({
-    data: {
-      senderId: req.userId!,
-      receiverId,
-      photoUrl,
-      fingerCount: count,
-      whichFingers: fingers,
-    },
-    include: {
-      sender: { select: { id: true, username: true, avatarUrl: true } },
-    },
+  const sender = await prisma.user.findUnique({
+    where: { id: req.userId! },
+    select: { id: true, username: true, avatarUrl: true },
   })
 
-  emitToUser(receiverId, 'new_challenge', {
-    challengeId: challenge.id,
-    from: challenge.sender,
-  })
+  const challenges = await Promise.all(
+    ids.map((receiverId) =>
+      prisma.challenge.create({
+        data: {
+          senderId: req.userId!,
+          receiverId,
+          photoUrl,
+          fingerCount: count,
+          whichFingers: fingers,
+        },
+        include: {
+          sender: { select: { id: true, username: true, avatarUrl: true } },
+        },
+      }),
+    ),
+  )
 
-  res.status(201).json({ challenge })
+  for (const challenge of challenges) {
+    emitToUser(challenge.receiverId, 'new_challenge', {
+      challengeId: challenge.id,
+      from: sender,
+    })
+  }
+
+  res.status(201).json({ challenges })
 }
 
 export async function getReceivedChallenges(req: AuthRequest, res: Response): Promise<void> {

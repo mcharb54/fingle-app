@@ -13,6 +13,7 @@ export default function AdminPage() {
   const [editForm, setEditForm] = useState({ username: '', email: '', totalScore: '' })
   const [editError, setEditError] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [clearingLeaderboard, setClearingLeaderboard] = useState(false)
 
   useEffect(() => {
     loadUsers()
@@ -28,6 +29,19 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : 'Failed to load users')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleClearLeaderboard() {
+    if (!confirm('Reset ALL user scores to 0? This cannot be undone.')) return
+    setClearingLeaderboard(true)
+    try {
+      await adminApi.clearLeaderboard()
+      setUsers((prev) => prev.map((u) => ({ ...u, totalScore: 0 })))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to clear leaderboard')
+    } finally {
+      setClearingLeaderboard(false)
     }
   }
 
@@ -106,6 +120,21 @@ export default function AdminPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-brand-400"
         />
+
+        {/* Danger zone */}
+        <div className="bg-zinc-900 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-white font-semibold text-sm">Clear Leaderboard</p>
+            <p className="text-gray-500 text-xs mt-0.5">Reset all user scores to 0</p>
+          </div>
+          <button
+            onClick={handleClearLeaderboard}
+            disabled={clearingLeaderboard}
+            className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+          >
+            {clearingLeaderboard ? 'Clearing…' : 'Clear'}
+          </button>
+        </div>
 
         {error && (
           <div className="bg-red-500/20 border border-red-500 text-red-300 rounded-xl p-3 text-sm">

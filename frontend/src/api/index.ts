@@ -73,7 +73,7 @@ export const friendsApi = {
 // Challenges
 export const challengesApi = {
   send: (formData: FormData) =>
-    request<{ challenge: Challenge }>('/challenges', { method: 'POST', body: formData }),
+    request<{ challenges: Challenge[] }>('/challenges', { method: 'POST', body: formData }),
   getReceived: () => request<{ challenges: Challenge[] }>('/challenges/received'),
   getSent: () => request<{ challenges: Challenge[] }>('/challenges/sent'),
   checkCount: (challengeId: string, fingerCountGuess: number) =>
@@ -114,4 +114,6 @@ export const adminApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+  clearLeaderboard: () =>
+    request<{ message: string }>('/admin/leaderboard/reset', { method: 'POST' }),
 }

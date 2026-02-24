@@ -2,6 +2,16 @@ import { Response } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
 
+export async function clearLeaderboard(_req: AuthRequest, res: Response): Promise<void> {
+  try {
+    await prisma.user.updateMany({ data: { totalScore: 0 } })
+    res.json({ message: 'Leaderboard cleared — all scores reset to 0' })
+  } catch (err) {
+    console.error('admin clearLeaderboard error:', err)
+    res.status(500).json({ error: 'Failed to clear leaderboard' })
+  }
+}
+
 export async function getUsers(_req: AuthRequest, res: Response): Promise<void> {
   try {
     const users = await prisma.user.findMany({

@@ -26,7 +26,9 @@ export default function SendPage() {
   const [selectedFingers, setSelectedFingers] = useState<FingerName[]>([])
   const [friends, setFriends] = useState<FriendEntry[]>([])
   const [loadingFriends, setLoadingFriends] = useState(false)
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([])
   const [sending, setSending] = useState(false)
+  const [sentCount, setSentCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   function handleCapture(blob: Blob, dataUrl: string) {
@@ -56,6 +58,7 @@ export default function SendPage() {
     try {
       const { friends } = await friendsApi.getFriends()
       setFriends(friends)
+      setSelectedFriendIds([])
       setStep('pick-friend')
     } catch {
       setError('Failed to load friends')
@@ -64,18 +67,25 @@ export default function SendPage() {
     }
   }
 
-  async function sendChallenge(friend: FriendEntry) {
-    if (!capturedBlobRef.current) return
+  function toggleFriendSelection(id: string) {
+    setSelectedFriendIds((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id],
+    )
+  }
+
+  async function sendChallenges() {
+    if (!capturedBlobRef.current || selectedFriendIds.length === 0) return
     setSending(true)
     setStep('sending')
     setError(null)
     try {
       const fd = new FormData()
       fd.append('photo', capturedBlobRef.current, 'challenge.jpg')
-      fd.append('receiverId', friend.user.id)
+      fd.append('receiverIds', JSON.stringify(selectedFriendIds))
       fd.append('fingerCount', String(fingerCount))
       fd.append('whichFingers', JSON.stringify(selectedFingers))
-      await challengesApi.send(fd)
+      const { challenges } = await challengesApi.send(fd)
+      setSentCount(challenges.length)
       setStep('sent')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send challenge')
@@ -178,15 +188,15 @@ export default function SendPage() {
               disabled={selectedFingers.length !== fingerCount || loadingFriends}
               className="w-full bg-brand-500 hover:bg-brand-400 disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-colors"
             >
-              {loadingFriends ? 'Loading…' : 'Choose recipient →'}
+              {loadingFriends ? 'Loading…' : 'Choose recipients →'}
             </button>
           </div>
         </div>
       )}
 
-      {/* Friend picker */}
+      {/* Friend picker — multi-select */}
       {step === 'pick-friend' && (
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {error && (
             <div className="mx-4 mt-4 bg-red-500/20 border border-red-500 text-red-300 rounded-xl p-3 text-sm">
               {error}
@@ -202,25 +212,52 @@ export default function SendPage() {
               </button>
             </div>
           ) : (
-            <div className="p-4 space-y-2">
-              {friends.map(({ user }) => (
+            <>
+              <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                {friends.map(({ user }) => {
+                  const isSelected = selectedFriendIds.includes(user.id)
+                  return (
+                    <button
+                      key={user.id}
+                      onClick={() => toggleFriendSelection(user.id)}
+                      className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors border ${
+                        isSelected
+                          ? 'bg-brand-500/20 border-brand-500/60'
+                          : 'bg-zinc-900 border-transparent hover:bg-zinc-800'
+                      }`}
+                    >
+                      <div className="w-11 h-11 rounded-full bg-brand-700 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                        {user.username[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-white font-semibold">{user.username}</p>
+                        <p className="text-gray-500 text-xs">{user.totalScore} pts</p>
+                      </div>
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isSelected ? 'bg-brand-500 border-brand-500' : 'border-white/30'
+                        }`}
+                      >
+                        {isSelected && <span className="text-white text-xs font-bold">✓</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Sticky send button */}
+              <div className="p-4 border-t border-white/10">
                 <button
-                  key={user.id}
-                  onClick={() => sendChallenge({ friendshipId: '', user })}
-                  disabled={sending}
-                  className="w-full flex items-center gap-3 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 rounded-2xl px-4 py-3 transition-colors"
+                  onClick={sendChallenges}
+                  disabled={selectedFriendIds.length === 0 || sending}
+                  className="w-full bg-brand-500 hover:bg-brand-400 disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-colors"
                 >
-                  <div className="w-11 h-11 rounded-full bg-brand-700 flex items-center justify-center font-bold text-lg flex-shrink-0">
-                    {user.username[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-white font-semibold">{user.username}</p>
-                    <p className="text-gray-500 text-xs">{user.totalScore} pts</p>
-                  </div>
-                  <span className="text-brand-400 text-sm font-semibold">Send →</span>
+                  {selectedFriendIds.length === 0
+                    ? 'Select at least one friend'
+                    : `Send to ${selectedFriendIds.length} friend${selectedFriendIds.length > 1 ? 's' : ''} →`}
                 </button>
-              ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -237,7 +274,9 @@ export default function SendPage() {
       {step === 'sent' && (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
           <div className="text-7xl mb-4 animate-pop-in">✅</div>
-          <p className="text-white font-black text-3xl mb-2">Challenge sent!</p>
+          <p className="text-white font-black text-3xl mb-2">
+            {sentCount > 1 ? `${sentCount} challenges sent!` : 'Challenge sent!'}
+          </p>
           <p className="text-gray-400 text-sm mb-8">They'll have to guess your fingers.</p>
           <button
             onClick={() => {
@@ -245,6 +284,7 @@ export default function SendPage() {
               setPreviewUrl(null)
               setSelectedFingers([])
               setFingerCount(1)
+              setSelectedFriendIds([])
             }}
             className="bg-brand-500 hover:bg-brand-400 text-white font-bold py-3 px-8 rounded-xl mb-3 transition-colors"
           >
