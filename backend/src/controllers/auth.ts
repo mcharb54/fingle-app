@@ -107,50 +107,60 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
     return
   }
 
-  const record = await prisma.emailVerificationToken.findUnique({ where: { token } })
-  if (!record) {
-    res.status(400).json({ error: 'Invalid or expired verification link' })
-    return
-  }
-  if (record.expiresAt < new Date()) {
+  try {
+    const record = await prisma.emailVerificationToken.findUnique({ where: { token } })
+    if (!record) {
+      res.status(400).json({ error: 'Invalid or expired verification link' })
+      return
+    }
+    if (record.expiresAt < new Date()) {
+      await prisma.emailVerificationToken.delete({ where: { id: record.id } })
+      res.status(400).json({ error: 'Verification link has expired' })
+      return
+    }
+
+    await prisma.user.update({
+      where: { id: record.userId },
+      data: { emailVerified: true },
+    })
     await prisma.emailVerificationToken.delete({ where: { id: record.id } })
-    res.status(400).json({ error: 'Verification link has expired' })
-    return
+
+    res.json({ message: 'Email verified successfully' })
+  } catch (err) {
+    console.error('verifyEmail error:', err)
+    res.status(500).json({ error: 'Failed to verify email' })
   }
-
-  await prisma.user.update({
-    where: { id: record.userId },
-    data: { emailVerified: true },
-  })
-  await prisma.emailVerificationToken.delete({ where: { id: record.id } })
-
-  res.json({ message: 'Email verified successfully' })
 }
 
 export async function resendVerification(req: AuthRequest, res: Response): Promise<void> {
-  const user = await prisma.user.findUnique({ where: { id: req.userId! } })
-  if (!user) {
-    res.status(404).json({ error: 'User not found' })
-    return
-  }
-  if (user.emailVerified) {
-    res.status(400).json({ error: 'Email is already verified' })
-    return
-  }
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId! } })
+    if (!user) {
+      res.status(404).json({ error: 'User not found' })
+      return
+    }
+    if (user.emailVerified) {
+      res.status(400).json({ error: 'Email is already verified' })
+      return
+    }
 
-  // Delete existing tokens and create a fresh one
-  await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } })
-  const token = crypto.randomBytes(32).toString('hex')
-  await prisma.emailVerificationToken.create({
-    data: {
-      userId: user.id,
-      token,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    },
-  })
-  await sendVerificationEmail(user.email, token)
+    // Delete existing tokens and create a fresh one
+    await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } })
+    const token = crypto.randomBytes(32).toString('hex')
+    await prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    })
+    await sendVerificationEmail(user.email, token)
 
-  res.json({ message: 'Verification email sent' })
+    res.json({ message: 'Verification email sent' })
+  } catch (err) {
+    console.error('resendVerification error:', err)
+    res.status(500).json({ error: 'Failed to send verification email' })
+  }
 }
 
 export async function forgotPassword(req: Request, res: Response): Promise<void> {
@@ -161,26 +171,31 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
     return
   }
 
-  // Always return 200 to avoid user enumeration
-  const user = await prisma.user.findUnique({ where: { email } })
-  if (user) {
-    await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } })
-    const token = crypto.randomBytes(32).toString('hex')
-    await prisma.passwordResetToken.create({
-      data: {
-        userId: user.id,
-        token,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
-      },
-    })
-    try {
-      await sendPasswordResetEmail(email, token)
-    } catch (err) {
-      console.error('Failed to send password reset email:', err)
+  try {
+    // Always return 200 to avoid user enumeration
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (user) {
+      await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } })
+      const token = crypto.randomBytes(32).toString('hex')
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          token,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+        },
+      })
+      try {
+        await sendPasswordResetEmail(email, token)
+      } catch (err) {
+        console.error('Failed to send password reset email:', err)
+      }
     }
-  }
 
-  res.json({ message: 'If that email exists, you will receive a reset link shortly' })
+    res.json({ message: 'If that email exists, you will receive a reset link shortly' })
+  } catch (err) {
+    console.error('forgotPassword error:', err)
+    res.json({ message: 'If that email exists, you will receive a reset link shortly' })
+  }
 }
 
 export async function resetPassword(req: Request, res: Response): Promise<void> {
@@ -195,25 +210,30 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     return
   }
 
-  const record = await prisma.passwordResetToken.findUnique({ where: { token } })
-  if (!record) {
-    res.status(400).json({ error: 'Invalid or expired reset link' })
-    return
-  }
-  if (record.expiresAt < new Date()) {
-    await prisma.passwordResetToken.delete({ where: { id: record.id } })
-    res.status(400).json({ error: 'Reset link has expired' })
-    return
-  }
+  try {
+    const record = await prisma.passwordResetToken.findUnique({ where: { token } })
+    if (!record) {
+      res.status(400).json({ error: 'Invalid or expired reset link' })
+      return
+    }
+    if (record.expiresAt < new Date()) {
+      await prisma.passwordResetToken.delete({ where: { id: record.id } })
+      res.status(400).json({ error: 'Reset link has expired' })
+      return
+    }
 
-  const passwordHash = await bcrypt.hash(password, 12)
-  await prisma.user.update({
-    where: { id: record.userId },
-    data: { passwordHash },
-  })
-  await prisma.passwordResetToken.deleteMany({ where: { userId: record.userId } })
+    const passwordHash = await bcrypt.hash(password, 12)
+    await prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash },
+    })
+    await prisma.passwordResetToken.deleteMany({ where: { userId: record.userId } })
 
-  res.json({ message: 'Password reset successfully' })
+    res.json({ message: 'Password reset successfully' })
+  } catch (err) {
+    console.error('resetPassword error:', err)
+    res.status(500).json({ error: 'Failed to reset password' })
+  }
 }
 
 export async function changePassword(req: AuthRequest, res: Response): Promise<void> {
@@ -228,21 +248,26 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     return
   }
 
-  const user = await prisma.user.findUnique({ where: { id: req.userId! } })
-  if (!user) {
-    res.status(404).json({ error: 'User not found' })
-    return
-  }
-  if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
-    res.status(401).json({ error: 'Current password is incorrect' })
-    return
-  }
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId! } })
+    if (!user) {
+      res.status(404).json({ error: 'User not found' })
+      return
+    }
+    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      res.status(401).json({ error: 'Current password is incorrect' })
+      return
+    }
 
-  const passwordHash = await bcrypt.hash(newPassword, 12)
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash },
-  })
+    const passwordHash = await bcrypt.hash(newPassword, 12)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    })
 
-  res.json({ message: 'Password changed successfully' })
+    res.json({ message: 'Password changed successfully' })
+  } catch (err) {
+    console.error('changePassword error:', err)
+    res.status(500).json({ error: 'Failed to change password' })
+  }
 }

@@ -23,6 +23,6 @@ COPY backend/tsconfig.json ./backend/
 # Build
 RUN cd backend && npm run build
 
-# Run migrations then start
+# Push schema then start
 EXPOSE 3001
-CMD ["sh", "-c", "cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma && node dist/index.js"]
+CMD ["sh", "-c", "cd backend && npx prisma db push --schema=../prisma/schema.prisma && node dist/index.js"]
