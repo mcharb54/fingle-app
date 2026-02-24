@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  avatarUrl    String?
+  totalScore   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  sentChallenges     Challenge[] @relation("Sent")
+  receivedChallenges Challenge[] @relation("Received")
+  guesses            Guess[]
+  friendsInitiated   Friend[]    @relation("Initiator")
+  friendsReceived    Friend[]    @relation("Receiver")
+}
+
+model Friend {
+  id          String       @id @default(cuid())
+  initiatorId String
+  receiverId  String
+  status      FriendStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+
+  initiator User @relation("Initiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+  receiver  User @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([initiatorId, receiverId])
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+model Challenge {
+  id           String    @id @default(cuid())
+  senderId     String
+  receiverId   String
+  photoUrl     String
+  fingerCount  Int
+  whichFingers String[]
+  seen         Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime?
+
+  sender   User   @relation("Sent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User   @relation("Received", fields: [receiverId], references: [id], onDelete: Cascade)
+  guess    Guess?
+}
+
+model Guess {
+  id                String   @id @default(cuid())
+  challengeId       String   @unique
+  userId            String
+  fingerCountGuess  Int
+  whichFingersGuess String[]
+  isCountCorrect    Boolean
+  isFingersCorrect  Boolean  @default(false)
+  points            Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

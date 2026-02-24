@@ -1,0 +1,86 @@
+import type { Challenge, FriendEntry, FriendRequest, PublicUser, User, FingerName } from '../types'
+
+const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
+
+function getToken(): string | null {
+  return localStorage.getItem('fingle_token')
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken()
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  const res = await fetch(`${BASE}${path}`, { ...options, headers })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error ?? 'Request failed')
+  return data as T
+}
+
+// Auth
+export const authApi = {
+  register: (username: string, email: string, password: string) =>
+    request<{ token: string; user: User }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, password }),
+    }),
+  login: (email: string, password: string) =>
+    request<{ token: string; user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  me: () => request<{ user: User }>('/auth/me'),
+}
+
+// Friends
+export const friendsApi = {
+  search: (q: string) => request<{ users: PublicUser[] }>(`/friends/search?q=${encodeURIComponent(q)}`),
+  getFriends: () => request<{ friends: FriendEntry[] }>('/friends'),
+  getPending: () => request<{ requests: FriendRequest[] }>('/friends/pending'),
+  sendRequest: (receiverId: string) =>
+    request<{ friend: unknown }>('/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ receiverId }),
+    }),
+  accept: (id: string) =>
+    request<{ friend: unknown }>(`/friends/${id}/accept`, { method: 'PUT' }),
+}
+
+// Challenges
+export const challengesApi = {
+  send: (formData: FormData) =>
+    request<{ challenge: Challenge }>('/challenges', { method: 'POST', body: formData }),
+  getReceived: () => request<{ challenges: Challenge[] }>('/challenges/received'),
+  getSent: () => request<{ challenges: Challenge[] }>('/challenges/sent'),
+  checkCount: (challengeId: string, fingerCountGuess: number) =>
+    request<{ isCorrect: boolean }>(`/challenges/${challengeId}/check-count`, {
+      method: 'POST',
+      body: JSON.stringify({ fingerCountGuess }),
+    }),
+  guess: (challengeId: string, fingerCountGuess: number, whichFingersGuess: FingerName[]) =>
+    request<{
+      guess: unknown
+      result: {
+        points: number
+        isCountCorrect: boolean
+        isFingersCorrect: boolean
+        correctCount: number
+        correctFingers: FingerName[]
+        photoUrl: string
+      }
+    }>(`/challenges/${challengeId}/guess`, {
+      method: 'POST',
+      body: JSON.stringify({ fingerCountGuess, whichFingersGuess }),
+    }),
+}
+
+// Leaderboard
+export const leaderboardApi = {
+  get: (scope: 'global' | 'friends' = 'global') =>
+    request<{ leaderboard: PublicUser[] }>(`/leaderboard?scope=${scope}`),
+}
