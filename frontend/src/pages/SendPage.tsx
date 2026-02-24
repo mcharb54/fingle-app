@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { challengesApi, friendsApi } from '../api'
 import type { FingerName, FriendEntry } from '../types'
 import CameraCapture from '../components/CameraCapture'
-import { useHandDetect } from '../hooks/useHandDetect'
 
 type Step = 'camera' | 'tag' | 'pick-friend' | 'sending' | 'sent'
 
@@ -15,11 +14,11 @@ const FINGERS: { name: FingerName; label: string }[] = [
   { name: 'pinky', label: 'Pinky' },
 ]
 
+const ALL_FINGERS = FINGERS.map((f) => f.name)
+
 export default function SendPage() {
   const navigate = useNavigate()
-  const { modelReady, detecting, detect } = useHandDetect()
   const capturedBlobRef = useRef<Blob | null>(null)
-  const capturedCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const [step, setStep] = useState<Step>('camera')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -30,28 +29,10 @@ export default function SendPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleCapture(blob: Blob, dataUrl: string) {
+  function handleCapture(blob: Blob, dataUrl: string) {
     capturedBlobRef.current = blob
     setPreviewUrl(dataUrl)
     setStep('tag')
-
-    // Run AI detection
-    if (modelReady) {
-      const img = new Image()
-      img.onload = async () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        canvas.getContext('2d')!.drawImage(img, 0, 0)
-        capturedCanvasRef.current = canvas
-        const result = await detect(canvas)
-        if (result && result.count > 0) {
-          setFingerCount(result.count)
-          setSelectedFingers(result.fingers)
-        }
-      }
-      img.src = dataUrl
-    }
   }
 
   function toggleFinger(name: FingerName) {
@@ -62,7 +43,11 @@ export default function SendPage() {
 
   function handleCountChange(count: number) {
     setFingerCount(count)
-    setSelectedFingers((prev) => prev.slice(0, count))
+    if (count === 5) {
+      setSelectedFingers(ALL_FINGERS)
+    } else {
+      setSelectedFingers((prev) => prev.slice(0, count))
+    }
   }
 
   async function proceedToFriendPicker() {
@@ -130,13 +115,6 @@ export default function SendPage() {
       {step === 'camera' && (
         <div className="flex-1 relative">
           <CameraCapture onCapture={handleCapture} />
-          {!modelReady && (
-            <div className="absolute bottom-28 left-0 right-0 text-center">
-              <span className="text-xs text-white/50 bg-black/40 rounded-full px-3 py-1">
-                Loading AI hand detection…
-              </span>
-            </div>
-          )}
         </div>
       )}
 
@@ -145,11 +123,6 @@ export default function SendPage() {
         <div className="flex-1 flex flex-col">
           <div className="relative flex-1">
             <img src={previewUrl} alt="captured" className="w-full h-full object-contain bg-zinc-950" />
-            {detecting && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                <p className="text-white text-sm">Detecting fingers…</p>
-              </div>
-            )}
           </div>
 
           <div className="bg-zinc-900 rounded-t-3xl p-6 space-y-5">
