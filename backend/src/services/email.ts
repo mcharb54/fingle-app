@@ -18,7 +18,7 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
     return
   }
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: fromEmail(),
     to,
     subject: 'Verify your Fingle email',
@@ -33,6 +33,8 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
       </div>
     `,
   })
+  if (result.error) throw new Error(`Resend error: ${JSON.stringify(result.error)}`)
+  console.log(`[email] Verification email sent to ${to}, id=${result.data?.id}`)
 }
 
 export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
@@ -43,7 +45,7 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
     return
   }
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: fromEmail(),
     to,
     subject: 'Reset your Fingle password',
@@ -58,4 +60,6 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
       </div>
     `,
   })
+  if (result.error) throw new Error(`Resend error: ${JSON.stringify(result.error)}`)
+  console.log(`[email] Password reset email sent to ${to}, id=${result.data?.id}`)
 }
