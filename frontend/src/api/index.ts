@@ -100,8 +100,8 @@ export const challengesApi = {
 
 // Leaderboard
 export const leaderboardApi = {
-  get: (scope: 'global' | 'friends' = 'global') =>
-    request<{ leaderboard: PublicUser[] }>(`/leaderboard?scope=${scope}`),
+  get: (scope: 'global' | 'friends' = 'global', period: 'weekly' | 'monthly' | 'alltime' = 'alltime') =>
+    request<{ leaderboard: PublicUser[] }>(`/leaderboard?scope=${scope}&period=${period}`),
 }
 
 // Admin

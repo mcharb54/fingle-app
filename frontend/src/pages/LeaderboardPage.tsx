@@ -5,20 +5,28 @@ import { useAuth } from '../context/AuthContext'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
+type Period = 'weekly' | 'monthly' | 'alltime'
+const PERIODS: { value: Period; label: string }[] = [
+  { value: 'weekly', label: 'This Week' },
+  { value: 'monthly', label: 'This Month' },
+  { value: 'alltime', label: 'All Time' },
+]
+
 export default function LeaderboardPage() {
   const { user } = useAuth()
   const [scope, setScope] = useState<'global' | 'friends'>('global')
+  const [period, setPeriod] = useState<Period>('alltime')
   const [leaderboard, setLeaderboard] = useState<PublicUser[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
     leaderboardApi
-      .get(scope)
+      .get(scope, period)
       .then(({ leaderboard }) => setLeaderboard(leaderboard))
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [scope])
+  }, [scope, period])
 
   return (
     <div className="min-h-full bg-black">
@@ -26,6 +34,8 @@ export default function LeaderboardPage() {
         <div className="px-4 py-3">
           <h1 className="text-xl font-black text-white">Leaderboard</h1>
         </div>
+
+        {/* Scope tabs */}
         <div className="flex border-b border-white/10">
           {(['global', 'friends'] as const).map((s) => (
             <button
@@ -36,6 +46,23 @@ export default function LeaderboardPage() {
               }`}
             >
               {s}
+            </button>
+          ))}
+        </div>
+
+        {/* Period pills */}
+        <div className="flex gap-2 px-4 py-2.5">
+          {PERIODS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setPeriod(value)}
+              className={`flex-1 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                period === value
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-white/10 text-gray-400 hover:bg-white/15'
+              }`}
+            >
+              {label}
             </button>
           ))}
         </div>
@@ -52,7 +79,13 @@ export default function LeaderboardPage() {
           <div className="text-center py-24">
             <p className="text-4xl mb-3">🏆</p>
             <p className="text-white font-bold">No scores yet</p>
-            <p className="text-gray-500 text-sm mt-1">Be the first to play!</p>
+            <p className="text-gray-500 text-sm mt-1">
+              {period === 'weekly'
+                ? 'No activity this week'
+                : period === 'monthly'
+                ? 'No activity this month'
+                : 'Be the first to play!'}
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
