@@ -7,6 +7,10 @@ export default function ProfilePage() {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMsg, setResendMsg] = useState('')
 
+  const [minimizePhotos, setMinimizePhotos] = useState(
+    () => localStorage.getItem('fingle_minimize_photos') === 'true',
+  )
+
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -112,6 +116,35 @@ export default function ProfilePage() {
               <p className="text-white text-sm font-semibold">Correct count + correct fingers</p>
               <p className="text-gray-500 text-xs">+30 pts total</p>
             </div>
+          </div>
+        </div>
+
+        {/* Preferences */}
+        <div className="mt-4 w-full bg-zinc-900 rounded-2xl p-5">
+          <p className="text-white font-bold mb-4">Preferences</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-white text-sm font-semibold">Minimize photos by default</p>
+              <p className="text-gray-500 text-xs mt-0.5">Collapse photos in inbox &amp; sent feeds</p>
+            </div>
+            <button
+              onClick={() => {
+                const next = !minimizePhotos
+                setMinimizePhotos(next)
+                localStorage.setItem('fingle_minimize_photos', String(next))
+              }}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                minimizePhotos ? 'bg-brand-500' : 'bg-zinc-600'
+              }`}
+              role="switch"
+              aria-checked={minimizePhotos}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                  minimizePhotos ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </div>
 

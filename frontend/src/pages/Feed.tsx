@@ -8,6 +8,7 @@ export default function Feed() {
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'inbox' | 'sent'>('inbox')
+  const minimizePhotos = localStorage.getItem('fingle_minimize_photos') === 'true'
 
   async function load() {
     try {
@@ -84,7 +85,7 @@ export default function Feed() {
             </p>
           </div>
         ) : (
-          challenges.map((c) => <ChallengeCard key={c.id} challenge={c} isSent={tab === 'sent'} />)
+          challenges.map((c) => <ChallengeCard key={c.id} challenge={c} isSent={tab === 'sent'} defaultMinimized={minimizePhotos} />)
         )}
       </div>
     </div>
