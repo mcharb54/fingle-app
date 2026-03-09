@@ -8,6 +8,7 @@ import {
   forgotPassword,
   resetPassword,
   changePassword,
+  changeUsername,
 } from '../controllers/auth.js'
 import { requireAuth } from '../middleware/auth.js'
 
@@ -21,5 +22,6 @@ router.post('/resend-verification', requireAuth, resendVerification)
 router.post('/forgot-password', forgotPassword)
 router.post('/reset-password', resetPassword)
 router.put('/change-password', requireAuth, changePassword)
+router.put('/change-username', requireAuth, changeUsername)
 
 export default router

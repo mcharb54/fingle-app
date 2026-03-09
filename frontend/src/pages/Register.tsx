@@ -84,11 +84,11 @@ export default function Register() {
           />
           <input
             type="password"
-            placeholder="Password (min 6 chars)"
+            placeholder="Password (min 8 chars)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={8}
             className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-brand-400"
           />
           <button

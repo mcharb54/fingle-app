@@ -41,8 +41,8 @@ export async function register(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: 'username, email and password are required' })
     return
   }
-  if (password.length < 6) {
-    res.status(400).json({ error: 'Password must be at least 6 characters' })
+  if (password.length < 8) {
+    res.status(400).json({ error: 'Password must be at least 8 characters' })
     return
   }
 
@@ -214,8 +214,8 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     res.status(400).json({ error: 'Token and password are required' })
     return
   }
-  if (password.length < 6) {
-    res.status(400).json({ error: 'Password must be at least 6 characters' })
+  if (password.length < 8) {
+    res.status(400).json({ error: 'Password must be at least 8 characters' })
     return
   }
 
@@ -252,8 +252,8 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     res.status(400).json({ error: 'currentPassword and newPassword are required' })
     return
   }
-  if (newPassword.length < 6) {
-    res.status(400).json({ error: 'New password must be at least 6 characters' })
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: 'New password must be at least 8 characters' })
     return
   }
 
@@ -279,5 +279,34 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
   } catch (err) {
     console.error('changePassword error:', err)
     res.status(500).json({ error: 'Failed to change password' })
+  }
+}
+
+export async function changeUsername(req: AuthRequest, res: Response): Promise<void> {
+  const { username } = req.body as { username?: string }
+
+  if (!username || username.trim().length < 2 || username.trim().length > 30) {
+    res.status(400).json({ error: 'Username must be 2–30 characters' })
+    return
+  }
+
+  const trimmed = username.trim()
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { username: trimmed } })
+    if (existing && existing.id !== req.userId) {
+      res.status(409).json({ error: 'Username already taken' })
+      return
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.userId! },
+      data: { username: trimmed },
+    })
+
+    res.json({ user: sanitizeUser(user) })
+  } catch (err) {
+    console.error('changeUsername error:', err)
+    res.status(500).json({ error: 'Failed to change username' })
   }
 }
