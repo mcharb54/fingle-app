@@ -51,25 +51,17 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
     take: 50,
   })
 
-  if (results.length === 0) {
-    res.json({ leaderboard: [] })
-    return
-  }
-
-  const userIds = results.map((r) => r.userId)
+  // For friends scope, fetch all friends+self so everyone appears even with 0 pts
+  const allUserIds = friendIds ?? results.map((r) => r.userId)
   const users = await prisma.user.findMany({
-    where: { id: { in: userIds } },
+    where: { id: { in: allUserIds } },
     select: { id: true, username: true, avatarUrl: true },
   })
 
-  const userMap = new Map(users.map((u) => [u.id, u]))
-  const leaderboard = results
-    .map((r) => {
-      const u = userMap.get(r.userId)
-      if (!u) return null
-      return { id: u.id, username: u.username, avatarUrl: u.avatarUrl, totalScore: r._sum.points ?? 0 }
-    })
-    .filter(Boolean)
+  const scoreMap = new Map(results.map((r) => [r.userId, r._sum.points ?? 0]))
+  const leaderboard = users
+    .map((u) => ({ id: u.id, username: u.username, avatarUrl: u.avatarUrl, totalScore: scoreMap.get(u.id) ?? 0 }))
+    .sort((a, b) => b.totalScore - a.totalScore)
 
   res.json({ leaderboard })
 }

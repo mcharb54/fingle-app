@@ -17,14 +17,10 @@ export default function FriendsPage() {
   }, [])
 
   async function reload() {
-    const [fr, pr, mr] = await Promise.all([
-      friendsApi.getFriends(),
-      friendsApi.getPending(),
-      friendsApi.getMembers(),
-    ])
+    const [fr, pr] = await Promise.all([friendsApi.getFriends(), friendsApi.getPending()])
     setFriends(fr.friends)
     setPending(pr.requests)
-    setMembers(mr.users)
+    friendsApi.getMembers().then((mr) => setMembers(mr.users)).catch(() => {})
   }
 
   useSocket({
