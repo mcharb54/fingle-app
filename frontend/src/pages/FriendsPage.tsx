@@ -20,7 +20,8 @@ export default function FriendsPage() {
     const [fr, pr] = await Promise.all([friendsApi.getFriends(), friendsApi.getPending()])
     setFriends(fr.friends)
     setPending(pr.requests)
-    friendsApi.getMembers().then((mr) => setMembers(mr.users)).catch(() => {})
+    const pendingFromIds = new Set(pr.requests.map((p) => p.from.id))
+    friendsApi.getMembers().then((mr) => setMembers(mr.users.filter((u) => !pendingFromIds.has(u.id)))).catch(() => {})
   }
 
   useSocket({

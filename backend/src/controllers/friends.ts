@@ -119,28 +119,32 @@ export async function getPendingRequests(req: AuthRequest, res: Response): Promi
 }
 
 export async function getMembers(req: AuthRequest, res: Response): Promise<void> {
-  const friendships = await prisma.friend.findMany({
-    where: {
-      OR: [
-        { initiatorId: req.userId! },
-        { receiverId: req.userId! },
-      ],
-    },
-    select: { initiatorId: true, receiverId: true },
-  })
+  try {
+    const friendships = await prisma.friend.findMany({
+      where: {
+        OR: [
+          { initiatorId: req.userId!, status: 'ACCEPTED' },
+          { receiverId: req.userId!, status: 'ACCEPTED' },
+        ],
+      },
+      select: { initiatorId: true, receiverId: true },
+    })
 
-  const excludeIds = new Set<string>([req.userId!])
-  for (const f of friendships) {
-    excludeIds.add(f.initiatorId)
-    excludeIds.add(f.receiverId)
+    const excludeIds = new Set<string>([req.userId!])
+    for (const f of friendships) {
+      excludeIds.add(f.initiatorId)
+      excludeIds.add(f.receiverId)
+    }
+
+    const users = await prisma.user.findMany({
+      where: { id: { notIn: [...excludeIds] } },
+      select: { id: true, username: true, avatarUrl: true, totalScore: true },
+      take: 30,
+      orderBy: { totalScore: 'desc' },
+    })
+
+    res.json({ users })
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch members' })
   }
-
-  const users = await prisma.user.findMany({
-    where: { id: { notIn: [...excludeIds] } },
-    select: { id: true, username: true, avatarUrl: true, totalScore: true },
-    take: 30,
-    orderBy: { totalScore: 'desc' },
-  })
-
-  res.json({ users })
 }
