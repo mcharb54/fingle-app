@@ -3,6 +3,7 @@ import type { FingerName } from '../types'
 interface Props {
   count: number
   freeMode?: boolean
+  actualCount?: number
   selected: FingerName[]
   onToggle: (finger: FingerName) => void
   onSubmit: () => void
@@ -17,27 +18,38 @@ const FINGERS: { name: FingerName; label: string; emoji: string }[] = [
   { name: 'pinky', label: 'Pinky', emoji: '🤙' },
 ]
 
-export default function FingerPicker({ count, freeMode = false, selected, onToggle, onSubmit, disabled }: Props) {
-  const canSubmit = freeMode ? selected.length >= 1 : selected.length === count
+export default function FingerPicker({ count, freeMode = false, actualCount, selected, onToggle, onSubmit, disabled }: Props) {
+  const canSubmit = freeMode
+    ? actualCount !== undefined ? selected.length === actualCount : selected.length >= 1
+    : selected.length === count
 
   return (
     <div className="w-full animate-slide-up">
       <p className="text-center text-white font-bold text-lg mb-1">
         {freeMode
-          ? 'Wrong count — still guess the fingers!'
+          ? actualCount !== undefined
+            ? `Wrong count — there were actually ${actualCount} fingers!`
+            : 'Wrong count — still guess the fingers!'
           : `Correct! Now which ${count === 1 ? 'finger' : `${count} fingers`}?`}
       </p>
       <p className="text-center text-gray-400 text-sm mb-5">
-        {freeMode ? 'Pick the right fingers for 5 pts' : `Select ${count} — bonus points!`}
+        {freeMode
+          ? actualCount !== undefined
+            ? `Pick the right ${actualCount === 1 ? 'finger' : `${actualCount} fingers`} for 5 pts`
+            : 'Pick the right fingers for 5 pts'
+          : `Select ${count} — bonus points!`}
       </p>
       <div className="flex gap-2 justify-center mb-6">
         {FINGERS.map(({ name, label, emoji }) => {
           const isSelected = selected.includes(name)
+          const maxReached = freeMode
+            ? actualCount !== undefined && !isSelected && selected.length >= actualCount
+            : !isSelected && selected.length >= count
           return (
             <button
               key={name}
               onClick={() => onToggle(name)}
-              disabled={disabled || (!freeMode && !isSelected && selected.length >= count)}
+              disabled={disabled || maxReached}
               className={`flex flex-col items-center gap-1 rounded-2xl w-14 h-20 justify-center transition-colors ${
                 isSelected
                   ? 'bg-brand-500 text-white'
@@ -56,7 +68,9 @@ export default function FingerPicker({ count, freeMode = false, selected, onTogg
         className="w-full bg-brand-500 hover:bg-brand-400 disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-colors"
       >
         {freeMode
-          ? `Submit fingers (${selected.length} selected)`
+          ? actualCount !== undefined
+            ? `Submit fingers (${selected.length}/${actualCount})`
+            : `Submit fingers (${selected.length} selected)`
           : `Submit fingers (${selected.length}/${count})`}
       </button>
     </div>

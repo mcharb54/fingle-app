@@ -6,6 +6,7 @@ import { useSocket } from '../hooks/useSocket'
 export default function FriendsPage() {
   const [friends, setFriends] = useState<FriendEntry[]>([])
   const [pending, setPending] = useState<FriendRequest[]>([])
+  const [members, setMembers] = useState<PublicUser[]>([])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PublicUser[]>([])
   const [searching, setSearching] = useState(false)
@@ -16,9 +17,14 @@ export default function FriendsPage() {
   }, [])
 
   async function reload() {
-    const [fr, pr] = await Promise.all([friendsApi.getFriends(), friendsApi.getPending()])
+    const [fr, pr, mr] = await Promise.all([
+      friendsApi.getFriends(),
+      friendsApi.getPending(),
+      friendsApi.getMembers(),
+    ])
     setFriends(fr.friends)
     setPending(pr.requests)
+    setMembers(mr.users)
   }
 
   useSocket({
@@ -150,6 +156,35 @@ export default function FriendsPage() {
             </div>
           )}
         </div>
+
+        {/* Other members */}
+        {members.length > 0 && (
+          <div>
+            <p className="text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wider">
+              Other Members
+            </p>
+            <div className="space-y-2">
+              {members.map((user) => (
+                <div key={user.id} className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-3">
+                  <div className="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center font-bold flex-shrink-0">
+                    {user.username[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-semibold text-sm">{user.username}</p>
+                    <p className="text-gray-500 text-xs">{user.totalScore} pts</p>
+                  </div>
+                  <button
+                    onClick={() => sendRequest(user.id)}
+                    disabled={sentTo.has(user.id)}
+                    className="text-brand-400 disabled:text-gray-500 text-sm font-semibold"
+                  >
+                    {sentTo.has(user.id) ? 'Sent ✓' : 'Add +'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
