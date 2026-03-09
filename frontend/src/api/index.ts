@@ -50,9 +50,13 @@ export const authApi = {
       body: JSON.stringify({ token, password }),
     }),
   changePassword: (currentPassword: string, newPassword: string) =>
-    request<{ message: string }>('/auth/change-password', {
+    request<{ message: string; token: string }>('/auth/change-password', {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
+    }).then((res) => {
+      // Keep the session alive with the freshly-issued token
+      localStorage.setItem('fingle_token', res.token)
+      return res
     }),
 }
 

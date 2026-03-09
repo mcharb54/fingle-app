@@ -16,7 +16,8 @@ export function useSocket(
 
     if (!socket) {
       const apiUrl = import.meta.env.VITE_API_URL ?? ''
-      socket = io(apiUrl, { auth: { userId: user.id }, path: '/socket.io' })
+      const token = localStorage.getItem('fingle_token') ?? ''
+      socket = io(apiUrl, { auth: { token }, path: '/socket.io' })
     }
 
     const entries = Object.entries(handlersRef.current)

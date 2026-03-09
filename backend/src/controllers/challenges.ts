@@ -5,7 +5,34 @@ import { AuthRequest } from '../middleware/auth.js'
 import { uploadPhoto } from '../services/cloudinary.js'
 import { emitToUser } from '../services/socket.js'
 
-export const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+/** Verify magic bytes to prevent MIME-type spoofing */
+function isAllowedImageBuffer(buf: Buffer): boolean {
+  if (buf.length < 12) return false
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true
+  // WebP: RIFF....WEBP
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) return true
+  return false
+}
+
+export const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(new Error('Only JPEG, PNG, and WebP images are allowed'))
+      return
+    }
+    cb(null, true)
+  },
+})
 
 const FINGER_NAMES = ['thumb', 'index', 'middle', 'ring', 'pinky'] as const
 type FingerName = (typeof FINGER_NAMES)[number]
@@ -36,6 +63,12 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
   const file = (req as AuthRequest & { file?: Express.Multer.File }).file
   if (!file) {
     res.status(400).json({ error: 'Photo is required' })
+    return
+  }
+
+  // Second-layer defence: verify magic bytes even if the MIME filter passed
+  if (!isAllowedImageBuffer(file.buffer)) {
+    res.status(400).json({ error: 'Only JPEG, PNG, and WebP images are allowed' })
     return
   }
 

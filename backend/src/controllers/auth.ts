@@ -6,8 +6,8 @@ import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js'
 
-function signToken(userId: string): string {
-  return jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '30d' })
+function signToken(userId: string, tokenVersion: number): string {
+  return jwt.sign({ userId, tokenVersion }, process.env.JWT_SECRET!, { expiresIn: '30d' })
 }
 
 function sanitizeUser(user: {
@@ -74,7 +74,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     console.error('Failed to send verification email:', err)
   }
 
-  res.status(201).json({ token: signToken(user.id), user: sanitizeUser(user) })
+  res.status(201).json({ token: signToken(user.id, user.tokenVersion), user: sanitizeUser(user) })
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
@@ -96,7 +96,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     return
   }
 
-  res.json({ token: signToken(user.id), user: sanitizeUser(user) })
+  res.json({ token: signToken(user.id, user.tokenVersion), user: sanitizeUser(user) })
 }
 
 export async function me(req: AuthRequest, res: Response): Promise<void> {
@@ -234,7 +234,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     const passwordHash = await bcrypt.hash(password, 12)
     await prisma.user.update({
       where: { id: record.userId },
-      data: { passwordHash },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
     })
     await prisma.passwordResetToken.deleteMany({ where: { userId: record.userId } })
 
@@ -269,12 +269,13 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12)
-    await prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
     })
 
-    res.json({ message: 'Password changed successfully' })
+    // Return a fresh token so the current session remains valid
+    res.json({ message: 'Password changed successfully', token: signToken(user.id, updated.tokenVersion) })
   } catch (err) {
     console.error('changePassword error:', err)
     res.status(500).json({ error: 'Failed to change password' })

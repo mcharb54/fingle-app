@@ -2,6 +2,8 @@ import 'dotenv/config'
 import http from 'http'
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 import { Server } from 'socket.io'
 import { initSocket } from './services/socket.js'
 
@@ -30,6 +32,12 @@ const io = new Server(server, {
 
 initSocket(io)
 
+// Security headers (HSTS, X-Content-Type-Options, X-Frame-Options, etc.)
+// Note: CSRF via csurf is not needed here — API uses Bearer token auth in
+// Authorization header, not cookies, so cross-origin requests cannot include
+// the token. helmet covers the remaining header-based mitigations.
+app.use(helmet())
+
 app.use(
   cors({
     origin: allowedOrigins,
@@ -37,6 +45,28 @@ app.use(
   }),
 )
 app.use(express.json())
+
+// Strict rate limit for auth endpoints — brute-force / abuse protection
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+})
+app.use('/api/auth/login', authLimiter)
+app.use('/api/auth/register', authLimiter)
+app.use('/api/auth/forgot-password', authLimiter)
+
+// General rate limit for all other API routes
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+})
+app.use('/api', globalLimiter)
 
 app.use('/api/auth', authRoutes)
 app.use('/api/friends', friendRoutes)
