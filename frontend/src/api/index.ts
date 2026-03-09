@@ -58,6 +58,11 @@ export const authApi = {
       localStorage.setItem('fingle_token', res.token)
       return res
     }),
+  changeUsername: (username: string) =>
+    request<{ user: User }>('/auth/change-username', {
+      method: 'PUT',
+      body: JSON.stringify({ username }),
+    }),
 }
 
 // Friends

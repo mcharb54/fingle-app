@@ -3,13 +3,19 @@ import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api'
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMsg, setResendMsg] = useState('')
 
   const [minimizePhotos, setMinimizePhotos] = useState(
     () => localStorage.getItem('fingle_minimize_photos') === 'true',
   )
+
+  const [showChangeUsername, setShowChangeUsername] = useState(false)
+  const [newUsername, setNewUsername] = useState('')
+  const [unLoading, setUnLoading] = useState(false)
+  const [unError, setUnError] = useState('')
+  const [unSuccess, setUnSuccess] = useState('')
 
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -30,6 +36,24 @@ export default function ProfilePage() {
       setResendMsg(err instanceof Error ? err.message : 'Failed to send email')
     } finally {
       setResendLoading(false)
+    }
+  }
+
+  async function handleChangeUsername(e: FormEvent) {
+    e.preventDefault()
+    setUnError('')
+    setUnSuccess('')
+    setUnLoading(true)
+    try {
+      await authApi.changeUsername(newUsername)
+      await refreshUser()
+      setUnSuccess('Username updated!')
+      setNewUsername('')
+      setShowChangeUsername(false)
+    } catch (err) {
+      setUnError(err instanceof Error ? err.message : 'Failed to update username')
+    } finally {
+      setUnLoading(false)
     }
   }
 
@@ -99,15 +123,22 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3">
             <span className="text-2xl">❌</span>
             <div>
-              <p className="text-white text-sm font-semibold">Wrong count</p>
-              <p className="text-gray-500 text-xs">Photo reveals, 0 pts</p>
+              <p className="text-white text-sm font-semibold">Wrong count, wrong fingers</p>
+              <p className="text-gray-500 text-xs">0 pts — still guess the fingers!</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🤙</span>
+            <div>
+              <p className="text-white text-sm font-semibold">Wrong count, right fingers</p>
+              <p className="text-gray-500 text-xs">+5 pts</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-2xl">✅</span>
             <div>
               <p className="text-white text-sm font-semibold">Correct count</p>
-              <p className="text-gray-500 text-xs">+10 pts, unlock finger guessing</p>
+              <p className="text-gray-500 text-xs">+10 pts, keep guessing fingers</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -148,6 +179,53 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Change Username */}
+        <div className="mt-4 w-full bg-zinc-900 rounded-2xl overflow-hidden">
+          <button
+            onClick={() => {
+              setShowChangeUsername((v) => !v)
+              setUnError('')
+              setUnSuccess('')
+            }}
+            className="w-full flex items-center justify-between px-5 py-4 text-left"
+          >
+            <span className="text-white font-semibold text-sm">Change Username</span>
+            <span className="text-gray-500 text-xs">{showChangeUsername ? '▲' : '▼'}</span>
+          </button>
+
+          {showChangeUsername && (
+            <form onSubmit={handleChangeUsername} className="px-5 pb-5 space-y-3">
+              {unError && (
+                <div className="bg-red-500/20 border border-red-500 text-red-300 rounded-xl p-3 text-xs">
+                  {unError}
+                </div>
+              )}
+              {unSuccess && (
+                <div className="bg-green-500/20 border border-green-500 text-green-300 rounded-xl p-3 text-xs">
+                  {unSuccess}
+                </div>
+              )}
+              <input
+                type="text"
+                placeholder={`New username (current: ${user.username})`}
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                required
+                minLength={2}
+                maxLength={30}
+                className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-brand-400"
+              />
+              <button
+                type="submit"
+                disabled={unLoading}
+                className="w-full bg-brand-500 hover:bg-brand-400 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+              >
+                {unLoading ? 'Saving…' : 'Save Username'}
+              </button>
+            </form>
+          )}
+        </div>
+
         {/* Change Password */}
         <div className="mt-4 w-full bg-zinc-900 rounded-2xl overflow-hidden">
           <button
@@ -184,11 +262,11 @@ export default function ProfilePage() {
               />
               <input
                 type="password"
-                placeholder="New password (min 6 chars)"
+                placeholder="New password (min 8 chars)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-brand-400"
               />
               <button
