@@ -212,7 +212,8 @@ export async function checkCount(req: AuthRequest, res: Response): Promise<void>
     return
   }
 
-  res.json({ isCorrect: fingerCountGuess === challenge.fingerCount })
+  const isCorrect = fingerCountGuess === challenge.fingerCount
+  res.json({ isCorrect, correctCount: isCorrect ? undefined : challenge.fingerCount })
 }
 
 export async function submitGuess(req: AuthRequest, res: Response): Promise<void> {

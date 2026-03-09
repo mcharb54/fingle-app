@@ -14,8 +14,8 @@ const PERIODS: { value: Period; label: string }[] = [
 
 export default function LeaderboardPage() {
   const { user } = useAuth()
-  const [scope, setScope] = useState<'global' | 'friends'>('global')
-  const [period, setPeriod] = useState<Period>('alltime')
+  const [scope, setScope] = useState<'global' | 'friends'>('friends')
+  const [period, setPeriod] = useState<Period>('weekly')
   const [leaderboard, setLeaderboard] = useState<PublicUser[]>([])
   const [loading, setLoading] = useState(true)
 

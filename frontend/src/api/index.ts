@@ -68,6 +68,7 @@ export const authApi = {
 // Friends
 export const friendsApi = {
   search: (q: string) => request<{ users: PublicUser[] }>(`/friends/search?q=${encodeURIComponent(q)}`),
+  getMembers: () => request<{ users: PublicUser[] }>('/friends/members'),
   getFriends: () => request<{ friends: FriendEntry[] }>('/friends'),
   getPending: () => request<{ requests: FriendRequest[] }>('/friends/pending'),
   sendRequest: (receiverId: string) =>
@@ -86,7 +87,7 @@ export const challengesApi = {
   getReceived: () => request<{ challenges: Challenge[] }>('/challenges/received'),
   getSent: () => request<{ challenges: Challenge[] }>('/challenges/sent'),
   checkCount: (challengeId: string, fingerCountGuess: number) =>
-    request<{ isCorrect: boolean }>(`/challenges/${challengeId}/check-count`, {
+    request<{ isCorrect: boolean; correctCount?: number }>(`/challenges/${challengeId}/check-count`, {
       method: 'POST',
       body: JSON.stringify({ fingerCountGuess }),
     }),
