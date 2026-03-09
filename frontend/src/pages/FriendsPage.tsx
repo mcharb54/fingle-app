@@ -20,8 +20,7 @@ export default function FriendsPage() {
     const [fr, pr] = await Promise.all([friendsApi.getFriends(), friendsApi.getPending()])
     setFriends(fr.friends)
     setPending(pr.requests)
-    const pendingFromIds = new Set(pr.requests.map((p) => p.from.id))
-    friendsApi.getMembers().then((mr) => setMembers(mr.users.filter((u) => !pendingFromIds.has(u.id)))).catch(() => {})
+    friendsApi.getMembers().then((mr) => setMembers(mr.users)).catch(() => {})
   }
 
   useSocket({
@@ -170,13 +169,17 @@ export default function FriendsPage() {
                     <p className="text-white font-semibold text-sm">{user.username}</p>
                     <p className="text-gray-500 text-xs">{user.totalScore} pts</p>
                   </div>
-                  <button
-                    onClick={() => sendRequest(user.id)}
-                    disabled={sentTo.has(user.id)}
-                    className="text-brand-400 disabled:text-gray-500 text-sm font-semibold"
-                  >
-                    {sentTo.has(user.id) ? 'Sent ✓' : 'Add +'}
-                  </button>
+                  {pending.some((p) => p.from.id === user.id) ? (
+                    <span className="text-gray-500 text-sm font-semibold">Pending</span>
+                  ) : (
+                    <button
+                      onClick={() => sendRequest(user.id)}
+                      disabled={sentTo.has(user.id)}
+                      className="text-brand-400 disabled:text-gray-500 text-sm font-semibold"
+                    >
+                      {sentTo.has(user.id) ? 'Sent ✓' : 'Add +'}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

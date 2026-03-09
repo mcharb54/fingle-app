@@ -123,7 +123,7 @@ export async function getMembers(req: AuthRequest, res: Response): Promise<void>
     const friendships = await prisma.friend.findMany({
       where: {
         OR: [
-          { initiatorId: req.userId!, status: 'ACCEPTED' },
+          { initiatorId: req.userId! },
           { receiverId: req.userId!, status: 'ACCEPTED' },
         ],
       },

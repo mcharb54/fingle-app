@@ -8,7 +8,7 @@ export default function Feed() {
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'inbox' | 'sent'>('inbox')
-  const minimizePhotos = localStorage.getItem('fingle_minimize_photos') !== 'false'
+  const minimizePhotos = localStorage.getItem('fingle_minimize_photos') === 'true'
 
   async function load() {
     try {
