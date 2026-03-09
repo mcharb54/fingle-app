@@ -24,6 +24,7 @@ export default function ChallengePage() {
   const [loading, setLoading] = useState(true)
   const [step, setStep] = useState<Step>('count')
   const [countGuess, setCountGuess] = useState<number>(0)
+  const [countCorrect, setCountCorrect] = useState(false)
   const [selectedFingers, setSelectedFingers] = useState<FingerName[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [reveal, setReveal] = useState<RevealData | null>(null)
@@ -59,14 +60,8 @@ export default function ChallengePage() {
     setSubmitting(true)
     try {
       const { isCorrect } = await challengesApi.checkCount(challenge.id, count)
-      if (isCorrect) {
-        setStep('fingers')
-      } else {
-        // Wrong count — store the final losing guess
-        const { result } = await challengesApi.guess(challenge.id, count, [])
-        setReveal(result)
-        setStep('reveal')
-      }
+      setCountCorrect(isCorrect)
+      setStep('fingers')
     } catch (err) {
       console.error(err)
     } finally {
@@ -139,6 +134,7 @@ export default function ChallengePage() {
         {step === 'fingers' && (
           <FingerPicker
             count={countGuess}
+            freeMode={!countCorrect}
             selected={selectedFingers}
             onToggle={toggleFinger}
             onSubmit={handleFingersSubmit}

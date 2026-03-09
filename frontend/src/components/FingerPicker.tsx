@@ -2,6 +2,7 @@ import type { FingerName } from '../types'
 
 interface Props {
   count: number
+  freeMode?: boolean
   selected: FingerName[]
   onToggle: (finger: FingerName) => void
   onSubmit: () => void
@@ -16,16 +17,18 @@ const FINGERS: { name: FingerName; label: string; emoji: string }[] = [
   { name: 'pinky', label: 'Pinky', emoji: '🤙' },
 ]
 
-export default function FingerPicker({ count, selected, onToggle, onSubmit, disabled }: Props) {
-  const canSubmit = selected.length === count
+export default function FingerPicker({ count, freeMode = false, selected, onToggle, onSubmit, disabled }: Props) {
+  const canSubmit = freeMode ? selected.length >= 1 : selected.length === count
 
   return (
     <div className="w-full animate-slide-up">
       <p className="text-center text-white font-bold text-lg mb-1">
-        Correct! Now which {count === 1 ? 'finger' : `${count} fingers`}?
+        {freeMode
+          ? 'Wrong count — still guess the fingers!'
+          : `Correct! Now which ${count === 1 ? 'finger' : `${count} fingers`}?`}
       </p>
       <p className="text-center text-gray-400 text-sm mb-5">
-        Select {count} — bonus points!
+        {freeMode ? 'Pick the right fingers for 5 pts' : `Select ${count} — bonus points!`}
       </p>
       <div className="flex gap-2 justify-center mb-6">
         {FINGERS.map(({ name, label, emoji }) => {
@@ -34,7 +37,7 @@ export default function FingerPicker({ count, selected, onToggle, onSubmit, disa
             <button
               key={name}
               onClick={() => onToggle(name)}
-              disabled={disabled || (!isSelected && selected.length >= count)}
+              disabled={disabled || (!freeMode && !isSelected && selected.length >= count)}
               className={`flex flex-col items-center gap-1 rounded-2xl w-14 h-20 justify-center transition-colors ${
                 isSelected
                   ? 'bg-brand-500 text-white'
@@ -52,7 +55,9 @@ export default function FingerPicker({ count, selected, onToggle, onSubmit, disa
         disabled={!canSubmit || disabled}
         className="w-full bg-brand-500 hover:bg-brand-400 disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-colors"
       >
-        Submit fingers ({selected.length}/{count})
+        {freeMode
+          ? `Submit fingers (${selected.length} selected)`
+          : `Submit fingers (${selected.length}/${count})`}
       </button>
     </div>
   )

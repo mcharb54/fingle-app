@@ -43,7 +43,7 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
             src={challenge.photoUrl}
             alt="challenge"
             className={`w-full h-auto block bg-zinc-950 transition-all duration-300 ${
-              !isSent && !isAnswered ? 'blur-xl scale-105' : ''
+              !isSent && !isAnswered ? 'blur-3xl scale-110' : ''
             }`}
           />
 

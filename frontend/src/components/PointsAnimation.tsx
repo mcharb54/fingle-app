@@ -16,10 +16,17 @@ export default function PointsAnimation({ points, isCountCorrect, isFingersCorre
               +{points}
             </div>
             <p className="text-white font-bold text-2xl mt-2">
-              {isFingersCorrect ? '🎯 Perfect!' : '✅ Correct count!'}
+              {isCountCorrect && isFingersCorrect
+                ? '🎯 Perfect!'
+                : isCountCorrect
+                  ? '✅ Correct count!'
+                  : '🤙 Right fingers!'}
             </p>
-            {isFingersCorrect && (
+            {isCountCorrect && isFingersCorrect && (
               <p className="text-brand-300 text-sm mt-1">Count + fingers = 30 pts</p>
+            )}
+            {!isCountCorrect && isFingersCorrect && (
+              <p className="text-brand-300 text-sm mt-1">Wrong count, but right fingers = 5 pts</p>
             )}
           </>
         ) : (

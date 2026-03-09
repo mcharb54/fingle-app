@@ -17,7 +17,6 @@ function scoreGuess(
   fingersGuess: FingerName[],
 ): { points: number; isCountCorrect: boolean; isFingersCorrect: boolean } {
   const isCountCorrect = countGuess === correctCount
-  if (!isCountCorrect) return { points: 0, isCountCorrect: false, isFingersCorrect: false }
 
   const correctSet = new Set(correctFingers)
   const guessSet = new Set(fingersGuess)
@@ -25,11 +24,12 @@ function scoreGuess(
     correctSet.size === guessSet.size &&
     [...correctSet].every((f) => guessSet.has(f))
 
-  return {
-    points: isCountCorrect ? (isFingersCorrect ? 30 : 10) : 0,
-    isCountCorrect,
-    isFingersCorrect,
-  }
+  let points = 0
+  if (isCountCorrect && isFingersCorrect) points = 30
+  else if (isCountCorrect) points = 10
+  else if (isFingersCorrect) points = 5
+
+  return { points, isCountCorrect, isFingersCorrect }
 }
 
 export async function createChallenge(req: AuthRequest, res: Response): Promise<void> {
