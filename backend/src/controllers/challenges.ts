@@ -54,7 +54,7 @@ function scoreGuess(
   let points = 0
   if (isCountCorrect && isFingersCorrect) points = 30
   else if (isCountCorrect) points = 10
-  else if (isFingersCorrect) points = 5
+  else if (isFingersCorrect && correctCount !== 5) points = 5
 
   return { points, isCountCorrect, isFingersCorrect }
 }
