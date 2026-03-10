@@ -19,7 +19,7 @@ function ProtectedLayout() {
   if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
   return (
-    <div className="flex flex-col h-screen max-w-md mx-auto">
+    <div className="flex flex-col h-dvh max-w-md mx-auto">
       <div className="flex-1 overflow-y-auto">
         <Routes>
           <Route path="/" element={<Feed />} />
