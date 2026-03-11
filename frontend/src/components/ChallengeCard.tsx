@@ -38,9 +38,7 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
     : person?.username ?? ''
 
   return (
-    <div
-      className="relative rounded-2xl overflow-hidden bg-zinc-900 select-none"
-    >
+    <div className="relative rounded-2xl overflow-hidden bg-zinc-900 select-none">
       {/* Photo */}
       {!isMinimized && (
         <div

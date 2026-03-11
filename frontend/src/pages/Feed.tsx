@@ -1,8 +1,32 @@
 import { useEffect, useState } from 'react'
 import { challengesApi } from '../api'
-import type { Challenge } from '../types'
+import type { Challenge, PublicUser } from '../types'
 import ChallengeCard from '../components/ChallengeCard'
 import { useSocket } from '../hooks/useSocket'
+
+interface SentGroup {
+  main: Challenge
+  recipients: PublicUser[]
+  answeredCount: number
+}
+
+function groupSentByPhoto(challenges: Challenge[]): SentGroup[] {
+  const map = new Map<string, SentGroup>()
+  for (const c of challenges) {
+    if (!map.has(c.photoUrl)) {
+      map.set(c.photoUrl, {
+        main: c,
+        recipients: c.receiver ? [c.receiver] : [],
+        answeredCount: c.guess ? 1 : 0,
+      })
+    } else {
+      const g = map.get(c.photoUrl)!
+      if (c.receiver) g.recipients.push(c.receiver)
+      if (c.guess) g.answeredCount++
+    }
+  }
+  return [...map.values()]
+}
 
 export default function Feed() {
   const [challenges, setChallenges] = useState<Challenge[]>([])
@@ -85,7 +109,18 @@ export default function Feed() {
             </p>
           </div>
         ) : (
-          challenges.map((c) => <ChallengeCard key={c.id} challenge={c} isSent={tab === 'sent'} defaultMinimized={minimizePhotos} />)
+          tab === 'sent'
+            ? groupSentByPhoto(challenges).map(({ main, recipients, answeredCount }) => (
+                <ChallengeCard
+                  key={main.id}
+                  challenge={main}
+                  isSent
+                  defaultMinimized={minimizePhotos}
+                  recipients={recipients}
+                  answeredCount={answeredCount}
+                />
+              ))
+            : challenges.map((c) => <ChallengeCard key={c.id} challenge={c} defaultMinimized={minimizePhotos} />)
         )}
       </div>
     </div>
