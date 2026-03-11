@@ -7,12 +7,13 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'https://api.fingle.club',
         changeOrigin: true,
       },
       '/socket.io': {
-        target: 'http://localhost:3001',
+        target: 'https://api.fingle.club',
         ws: true,
+        secure: false,
       },
     },
   },

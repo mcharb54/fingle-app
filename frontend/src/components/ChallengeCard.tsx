@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Challenge } from '../types'
+import type { Challenge, PublicUser } from '../types'
 
 interface Props {
   challenge: Challenge
   isSent?: boolean
   defaultMinimized?: boolean
+  recipients?: PublicUser[]
+  answeredCount?: number
 }
 
 function timeAgo(iso: string): string {
@@ -18,7 +20,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function ChallengeCard({ challenge, isSent = false, defaultMinimized = false }: Props) {
+export default function ChallengeCard({ challenge, isSent = false, defaultMinimized = false, recipients, answeredCount }: Props) {
   const navigate = useNavigate()
   const isAnswered = !!challenge.guess
   const [isMinimized, setIsMinimized] = useState(defaultMinimized)
@@ -28,6 +30,12 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
   }
 
   const person = isSent ? challenge.receiver : challenge.sender
+  const totalRecipients = recipients?.length ?? 1
+  const resolvedAnsweredCount = answeredCount ?? (isAnswered ? 1 : 0)
+  const allAnswered = resolvedAnsweredCount === totalRecipients
+  const displayName = isSent && recipients && recipients.length > 0
+    ? recipients.map((r) => r.username).join(', ')
+    : person?.username ?? ''
 
   return (
     <div
@@ -71,14 +79,22 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
           {isSent && (
             <div
               className={`absolute top-3 right-3 rounded-full px-3 py-1 text-xs font-bold ${
-                isAnswered
-                  ? challenge.guess!.points > 0
+                totalRecipients > 1
+                  ? allAnswered
                     ? 'bg-green-500'
-                    : 'bg-gray-600'
-                  : 'bg-black/60 text-gray-300'
+                    : resolvedAnsweredCount > 0
+                      ? 'bg-yellow-500 text-black'
+                      : 'bg-black/60 text-gray-300'
+                  : isAnswered
+                    ? challenge.guess!.points > 0
+                      ? 'bg-green-500'
+                      : 'bg-gray-600'
+                    : 'bg-black/60 text-gray-300'
               }`}
             >
-              {isAnswered ? `+${challenge.guess!.points} pts` : 'Waiting…'}
+              {totalRecipients > 1
+                ? `${resolvedAnsweredCount}/${totalRecipients} answered`
+                : isAnswered ? `+${challenge.guess!.points} pts` : 'Waiting…'}
             </div>
           )}
         </div>
@@ -87,17 +103,19 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
       {/* Footer */}
       <div className="px-4 py-3 flex items-center gap-3">
         <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
-          {person?.username[0].toUpperCase()}
+          {displayName[0]?.toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm truncate text-white">
-            {isSent ? 'To ' : ''}{person?.username}
+            {isSent ? 'To ' : ''}{displayName}
           </p>
           <p className="text-gray-500 text-xs">
             {isSent
-              ? isAnswered
-                ? `Answered · ${timeAgo(challenge.guess!.createdAt)}`
-                : `Sent · ${timeAgo(challenge.createdAt)}`
+              ? totalRecipients > 1
+                ? `${resolvedAnsweredCount}/${totalRecipients} answered · ${timeAgo(challenge.createdAt)}`
+                : isAnswered
+                  ? `Answered · ${timeAgo(challenge.guess!.createdAt)}`
+                  : `Sent · ${timeAgo(challenge.createdAt)}`
               : timeAgo(challenge.createdAt)}
           </p>
         </div>
@@ -109,11 +127,17 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
           <span
             className={`text-xs font-bold rounded-full px-2.5 py-0.5 flex-shrink-0 ${
               isSent
-                ? isAnswered
-                  ? challenge.guess!.points > 0
+                ? totalRecipients > 1
+                  ? allAnswered
                     ? 'bg-green-500 text-white'
-                    : 'bg-gray-600 text-white'
-                  : 'bg-black/60 text-gray-300'
+                    : resolvedAnsweredCount > 0
+                      ? 'bg-yellow-500 text-black'
+                      : 'bg-black/60 text-gray-300'
+                  : isAnswered && challenge.guess
+                    ? challenge.guess.points > 0
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-600 text-white'
+                    : 'bg-black/60 text-gray-300'
                 : isAnswered && challenge.guess
                   ? challenge.guess.points > 0
                     ? 'bg-green-500 text-white'
@@ -122,9 +146,11 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
             }`}
           >
             {isSent
-              ? isAnswered
-                ? `+${challenge.guess!.points} pts`
-                : 'Waiting…'
+              ? totalRecipients > 1
+                ? `${resolvedAnsweredCount}/${totalRecipients}`
+                : isAnswered
+                  ? `+${challenge.guess!.points} pts`
+                  : 'Waiting…'
               : isAnswered && challenge.guess
                 ? `+${challenge.guess.points} pts`
                 : '●'}

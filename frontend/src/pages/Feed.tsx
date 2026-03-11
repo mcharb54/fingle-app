@@ -49,7 +49,7 @@ export default function Feed() {
       <div className="sticky top-0 z-10 bg-black/80 backdrop-blur border-b border-white/10 safe-top">
         <div className="flex items-center px-4 py-3">
           <h1 className="text-2xl font-black text-brand-400 flex-1">Fingle</h1>
-          {unread > 0 && (
+          {tab === 'inbox' && unread > 0 && (
             <span className="bg-brand-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
               {unread} new
             </span>
