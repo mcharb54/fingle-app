@@ -13,9 +13,11 @@ import ProfilePage from './pages/ProfilePage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import AdminPage from './pages/AdminPage'
 import NavBar from './components/NavBar'
+import { usePushNotifications } from './hooks/usePushNotifications'
 
 function ProtectedLayout() {
   const { user, loading } = useAuth()
+  usePushNotifications()
   if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
   return (
