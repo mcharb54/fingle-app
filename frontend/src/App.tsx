@@ -13,15 +13,20 @@ import ProfilePage from './pages/ProfilePage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import AdminPage from './pages/AdminPage'
 import NavBar from './components/NavBar'
+import NotificationPrompt from './components/NotificationPrompt'
 import { usePushNotifications } from './hooks/usePushNotifications'
 
 function ProtectedLayout() {
   const { user, loading } = useAuth()
-  usePushNotifications()
+  const { isSupported, permission, isSubscribed, enableNotifications } = usePushNotifications()
   if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
+
+  const showPrompt = isSupported && !isSubscribed && permission === 'default'
+
   return (
     <div className="flex flex-col h-dvh max-w-md mx-auto">
+      {showPrompt && <NotificationPrompt onEnable={enableNotifications} />}
       <div className="flex-1 overflow-y-auto">
         <Routes>
           <Route path="/" element={<Feed />} />

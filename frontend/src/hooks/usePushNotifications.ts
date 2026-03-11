@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { pushApi } from '../api'
 
@@ -15,42 +15,78 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return output
 }
 
+const isSupported =
+  typeof window !== 'undefined' &&
+  'serviceWorker' in navigator &&
+  'PushManager' in window
+
 export function usePushNotifications() {
   const { user } = useAuth()
+  const [permission, setPermission] = useState<NotificationPermission | 'unknown'>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'unknown',
+  )
+  const [isSubscribed, setIsSubscribed] = useState(false)
 
+  // On mount: register SW and sync existing subscription (no permission prompt)
   useEffect(() => {
-    if (!user || !VAPID_PUBLIC_KEY) return
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    if (!user || !VAPID_PUBLIC_KEY || !isSupported) return
 
-    async function setup() {
+    async function syncSubscription() {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js')
-
         await navigator.serviceWorker.ready
 
         const existing = await registration.pushManager.getSubscription()
         if (existing) {
-          // Ensure the backend has this subscription (e.g. after re-login)
           await pushApi.subscribe(existing.toJSON() as PushSubscriptionJSON)
+          setIsSubscribed(true)
           return
         }
 
-        const permission = Notification.permission === 'granted'
-          ? 'granted'
-          : await Notification.requestPermission()
-        if (permission !== 'granted') return
+        // If permission was already granted but subscription is missing, auto-subscribe
+        if (Notification.permission === 'granted') {
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY!),
+          })
+          await pushApi.subscribe(subscription.toJSON() as PushSubscriptionJSON)
+          setIsSubscribed(true)
+        }
 
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY!),
-        })
-
-        await pushApi.subscribe(subscription.toJSON() as PushSubscriptionJSON)
+        setPermission(Notification.permission)
       } catch (err) {
-        console.error('[push] setup failed:', err)
+        console.error('[push] sync failed:', err)
       }
     }
 
-    setup()
+    syncSubscription()
   }, [user])
+
+  // Must be called from a user gesture (click/tap) for iOS compatibility
+  const enableNotifications = useCallback(async () => {
+    if (!VAPID_PUBLIC_KEY || !isSupported) return
+
+    try {
+      const result = await Notification.requestPermission()
+      setPermission(result)
+      if (result !== 'granted') return
+
+      const registration = await navigator.serviceWorker.ready
+      let subscription = await registration.pushManager.getSubscription()
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        })
+      }
+
+      await pushApi.subscribe(subscription.toJSON() as PushSubscriptionJSON)
+      setIsSubscribed(true)
+    } catch (err) {
+      console.error('[push] enable failed:', err)
+    }
+  }, [])
+
+  return { isSupported, permission, isSubscribed, enableNotifications }
 }
