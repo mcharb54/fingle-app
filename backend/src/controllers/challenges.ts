@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
 import { uploadPhoto } from '../services/cloudinary.js'
 import { emitToUser } from '../services/socket.js'
+import { sendPushToUser } from '../services/webpush.js'
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
@@ -162,6 +163,11 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
       challengeId: challenge.id,
       from: sender,
     })
+    sendPushToUser(challenge.receiverId, {
+      title: `${sender?.username ?? 'Someone'} challenged you!`,
+      body: 'Tap to guess their fingers 👆',
+      url: '/',
+    }).catch(() => {/* non-fatal */})
   }
 
   res.status(201).json({ challenges })

@@ -296,6 +296,18 @@ export default function ProfilePage() {
         >
           Sign out
         </button>
+
+        <p className="mt-6 mb-2 text-center text-gray-600 text-xs">
+          <a
+            href="https://www.flaticon.com/free-icons/hand-up"
+            title="hand up icons"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-400"
+          >
+            Hand up icons created by Park Mi Kyoung – Flaticon
+          </a>
+        </p>
       </div>
     </div>
   )

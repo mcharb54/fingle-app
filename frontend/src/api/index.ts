@@ -114,6 +114,20 @@ export const leaderboardApi = {
     request<{ leaderboard: PublicUser[] }>(`/leaderboard?scope=${scope}&period=${period}`),
 }
 
+// Push notifications
+export const pushApi = {
+  subscribe: (subscription: PushSubscriptionJSON) =>
+    request<{ ok: boolean }>('/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(subscription),
+    }),
+  unsubscribe: (endpoint: string) =>
+    request<{ ok: boolean }>('/push/unsubscribe', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint }),
+    }),
+}
+
 // Admin
 export const adminApi = {
   getUsers: () => request<{ users: AdminUser[] }>('/admin/users'),
