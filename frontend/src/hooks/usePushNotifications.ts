@@ -26,6 +26,8 @@ export function usePushNotifications() {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js')
 
+        await navigator.serviceWorker.ready
+
         const existing = await registration.pushManager.getSubscription()
         if (existing) {
           // Ensure the backend has this subscription (e.g. after re-login)
@@ -33,7 +35,9 @@ export function usePushNotifications() {
           return
         }
 
-        const permission = await Notification.requestPermission()
+        const permission = Notification.permission === 'granted'
+          ? 'granted'
+          : await Notification.requestPermission()
         if (permission !== 'granted') return
 
         const subscription = await registration.pushManager.subscribe({
