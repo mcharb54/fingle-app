@@ -15,17 +15,27 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return output
 }
 
-const isSupported =
-  typeof window !== 'undefined' &&
-  'serviceWorker' in navigator &&
-  'PushManager' in window
+function checkPushSupport(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
+  )
+}
 
 export function usePushNotifications() {
   const { user } = useAuth()
+  const [isSupported, setIsSupported] = useState(() => checkPushSupport())
   const [permission, setPermission] = useState<NotificationPermission | 'unknown'>(
     typeof Notification !== 'undefined' ? Notification.permission : 'unknown',
   )
   const [isSubscribed, setIsSubscribed] = useState(false)
+
+  // Re-check support on mount (iOS APIs may not be available at module load time)
+  useEffect(() => {
+    setIsSupported(checkPushSupport())
+  }, [])
 
   // On mount: register SW and sync existing subscription (no permission prompt)
   useEffect(() => {

@@ -9,7 +9,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   if (!event.data) return
 
-  const data = event.data.json()
+  let data
+  try {
+    data = event.data.json()
+  } catch {
+    data = { title: 'Fingle', body: event.data.text() || 'You have a new notification' }
+  }
 
   event.waitUntil(
     self.registration.showNotification(data.title ?? 'Fingle', {
@@ -23,16 +28,21 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const url = event.notification.data?.url ?? '/'
+  const urlPath = event.notification.data?.url ?? '/'
+  const fullUrl = new URL(urlPath, self.location.origin).href
 
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
+        // Focus an existing window if one is available
         for (const client of windowClients) {
-          return client.navigate(url).then((c) => c?.focus())
+          if ('focus' in client) {
+            return client.focus().then((c) => c.navigate(fullUrl))
+          }
         }
-        if (clients.openWindow) return clients.openWindow(url)
+        // No existing window — open a new one
+        if (clients.openWindow) return clients.openWindow(fullUrl)
       }),
   )
 })
