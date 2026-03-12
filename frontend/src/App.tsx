@@ -15,10 +15,12 @@ import AdminPage from './pages/AdminPage'
 import NavBar from './components/NavBar'
 import NotificationPrompt from './components/NotificationPrompt'
 import { usePushNotifications } from './hooks/usePushNotifications'
+import { useReloadOnResume } from './hooks/useReloadOnResume'
 
 function ProtectedLayout() {
   const { user, loading } = useAuth()
   const { isSupported, permission, isSubscribed, enableNotifications } = usePushNotifications()
+  useReloadOnResume()
   if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
 
