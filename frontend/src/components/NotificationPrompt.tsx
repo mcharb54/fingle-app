@@ -1,6 +1,13 @@
 import { useState } from 'react'
 
-const DISMISSED_KEY = 'fingle_push_dismissed'
+// Use a standalone-aware key so dismissing in a Safari tab doesn't
+// prevent the prompt from appearing when launched from the home screen.
+const isStandalone =
+  typeof window !== 'undefined' &&
+  (window.matchMedia('(display-mode: standalone)').matches ||
+    ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true))
+
+const DISMISSED_KEY = isStandalone ? 'fingle_push_dismissed_standalone' : 'fingle_push_dismissed'
 
 export default function NotificationPrompt({ onEnable }: { onEnable: () => void }) {
   const [dismissed, setDismissed] = useState(
