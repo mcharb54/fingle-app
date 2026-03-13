@@ -14,12 +14,13 @@ import LeaderboardPage from './pages/LeaderboardPage'
 import AdminPage from './pages/AdminPage'
 import NavBar from './components/NavBar'
 import NotificationPrompt from './components/NotificationPrompt'
+import IOSInstallPrompt from './components/IOSInstallPrompt'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useReloadOnResume } from './hooks/useReloadOnResume'
 
 function ProtectedLayout() {
   const { user, loading } = useAuth()
-  const { isSupported, permission, isSubscribed, enableNotifications } = usePushNotifications()
+  const { isSupported, isIOSSafariBrowser, permission, isSubscribed, enableNotifications } = usePushNotifications()
   useReloadOnResume()
   if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
@@ -28,6 +29,7 @@ function ProtectedLayout() {
 
   return (
     <div className="flex flex-col h-dvh max-w-md mx-auto">
+      {isIOSSafariBrowser && <IOSInstallPrompt />}
       {showPrompt && <NotificationPrompt onEnable={enableNotifications} />}
       <div className="flex-1 overflow-y-auto">
         <Routes>
