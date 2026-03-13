@@ -24,9 +24,22 @@ function checkPushSupport(): boolean {
   )
 }
 
+function checkIsIOSSafariBrowser(): boolean {
+  if (typeof window === 'undefined') return false
+  const isIOS =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  if (!isIOS) return false
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
+  return !isStandalone
+}
+
 export function usePushNotifications() {
   const { user } = useAuth()
   const [isSupported, setIsSupported] = useState(() => checkPushSupport())
+  const [isIOSSafariBrowser, setIsIOSSafariBrowser] = useState(() => checkIsIOSSafariBrowser())
   const [permission, setPermission] = useState<NotificationPermission | 'unknown'>(
     typeof Notification !== 'undefined' ? Notification.permission : 'unknown',
   )
@@ -35,6 +48,7 @@ export function usePushNotifications() {
   // Re-check support on mount (iOS APIs may not be available at module load time)
   useEffect(() => {
     setIsSupported(checkPushSupport())
+    setIsIOSSafariBrowser(checkIsIOSSafariBrowser())
   }, [])
 
   // On mount: register SW and sync existing subscription (no permission prompt)
@@ -65,12 +79,16 @@ export function usePushNotifications() {
 
         setPermission(Notification.permission)
       } catch (err) {
-        console.error('[push] sync failed:', err)
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          console.warn('[push] subscription not ready yet (iOS first launch), will retry on next mount')
+        } else {
+          console.error('[push] sync failed:', err)
+        }
       }
     }
 
     syncSubscription()
-  }, [user])
+  }, [user, isSupported])
 
   // Must be called from a user gesture (click/tap) for iOS compatibility
   const enableNotifications = useCallback(async () => {
@@ -98,5 +116,5 @@ export function usePushNotifications() {
     }
   }, [])
 
-  return { isSupported, permission, isSubscribed, enableNotifications }
+  return { isSupported, isIOSSafariBrowser, permission, isSubscribed, enableNotifications }
 }
