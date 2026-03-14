@@ -126,6 +126,8 @@ export const pushApi = {
       method: 'POST',
       body: JSON.stringify({ endpoint }),
     }),
+  testPush: () =>
+    request<{ ok: boolean }>('/push/test', { method: 'POST' }),
 }
 
 // Admin

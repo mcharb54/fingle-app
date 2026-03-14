@@ -95,18 +95,35 @@ export function usePushNotifications() {
     if (!VAPID_PUBLIC_KEY || !isSupported) return
 
     try {
+      // iOS requires the SW to be active BEFORE Notification.requestPermission() is called.
+      // Registering an already-registered SW is a no-op.
+      await navigator.serviceWorker.register('/sw.js')
+      const registration = await navigator.serviceWorker.ready
+
       const result = await Notification.requestPermission()
       setPermission(result)
       if (result !== 'granted') return
 
-      const registration = await navigator.serviceWorker.ready
       let subscription = await registration.pushManager.getSubscription()
 
       if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        })
+        try {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          })
+        } catch (err) {
+          // iOS 16.4 bug: first subscribe attempt can throw AbortError — retry once
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            await new Promise((resolve) => setTimeout(resolve, 500))
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+            })
+          } else {
+            throw err
+          }
+        }
       }
 
       await pushApi.subscribe(subscription.toJSON() as PushSubscriptionJSON)
@@ -114,7 +131,7 @@ export function usePushNotifications() {
     } catch (err) {
       console.error('[push] enable failed:', err)
     }
-  }, [])
+  }, [isSupported])
 
   return { isSupported, isIOSSafariBrowser, permission, isSubscribed, enableNotifications }
 }
