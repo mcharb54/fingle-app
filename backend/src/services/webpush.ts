@@ -2,7 +2,7 @@ import webpush from 'web-push'
 import { prisma } from '../lib/prisma.js'
 
 webpush.setVapidDetails(
-  `mailto:${process.env.FROM_EMAIL ?? 'admin@fingle.club'}`,
+  'https://www.fingle.club',
   process.env.VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!,
 )
