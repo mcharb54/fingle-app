@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { challengesApi } from '../api'
 import type { Challenge, PublicUser } from '../types'
 import ChallengeCard from '../components/ChallengeCard'
 import { useSocket } from '../hooks/useSocket'
+
+const PAGE_SIZE = 5
 
 interface SentGroup {
   main: Challenge
@@ -32,6 +34,8 @@ export default function Feed() {
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'inbox' | 'sent'>('inbox')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const minimizePhotos = localStorage.getItem('fingle_minimize_photos') === 'true'
 
   async function load() {
@@ -52,9 +56,26 @@ export default function Feed() {
 
   useEffect(() => {
     setLoading(true)
+    setVisibleCount(PAGE_SIZE)
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((n) => n + PAGE_SIZE)
+        }
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [loading])
 
   useSocket({
     new_challenge: () => {
@@ -66,6 +87,10 @@ export default function Feed() {
   })
 
   const unread = challenges.filter((c) => !c.guess && !c.seen).length
+
+  const sentGroups = tab === 'sent' ? groupSentByPhoto(challenges) : []
+  const totalItems = tab === 'sent' ? sentGroups.length : challenges.length
+  const hasMore = visibleCount < totalItems
 
   return (
     <div className="min-h-full bg-black">
@@ -108,20 +133,25 @@ export default function Feed() {
               {tab === 'inbox' ? 'Ask a friend to send you one!' : 'Send a challenge to a friend!'}
             </p>
           </div>
+        ) : tab === 'sent' ? (
+          sentGroups.slice(0, visibleCount).map(({ main, recipients, answeredCount }) => (
+            <ChallengeCard
+              key={main.id}
+              challenge={main}
+              isSent
+              defaultMinimized={minimizePhotos}
+              recipients={recipients}
+              answeredCount={answeredCount}
+            />
+          ))
         ) : (
-          tab === 'sent'
-            ? groupSentByPhoto(challenges).map(({ main, recipients, answeredCount }) => (
-                <ChallengeCard
-                  key={main.id}
-                  challenge={main}
-                  isSent
-                  defaultMinimized={minimizePhotos}
-                  recipients={recipients}
-                  answeredCount={answeredCount}
-                />
-              ))
-            : challenges.map((c) => <ChallengeCard key={c.id} challenge={c} defaultMinimized={minimizePhotos} />)
+          challenges.slice(0, visibleCount).map((c) => (
+            <ChallengeCard key={c.id} challenge={c} defaultMinimized={minimizePhotos} />
+          ))
         )}
+
+        {/* Sentinel for infinite scroll */}
+        {!loading && hasMore && <div ref={sentinelRef} className="h-8" />}
       </div>
     </div>
   )
