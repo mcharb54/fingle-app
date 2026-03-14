@@ -9,7 +9,7 @@ export default function CameraCapture({ onCapture }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
 
   useEffect(() => {
     startCamera()
