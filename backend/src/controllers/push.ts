@@ -1,6 +1,7 @@
 import { Response } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
+import { sendPushToUser } from '../services/webpush.js'
 
 export async function subscribe(req: AuthRequest, res: Response): Promise<void> {
   const { endpoint, keys } = req.body as {
@@ -34,5 +35,14 @@ export async function unsubscribe(req: AuthRequest, res: Response): Promise<void
     where: { endpoint, userId: req.userId! },
   })
 
+  res.json({ ok: true })
+}
+
+export async function testPush(req: AuthRequest, res: Response): Promise<void> {
+  await sendPushToUser(req.userId!, {
+    title: 'Test notification',
+    body: 'Push notifications are working!',
+    url: '/',
+  })
   res.json({ ok: true })
 }

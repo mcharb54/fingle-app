@@ -1,9 +1,13 @@
 import { FormEvent, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { authApi } from '../api'
+import { authApi, pushApi } from '../api'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 
 export default function ProfilePage() {
   const { user, logout, refreshUser } = useAuth()
+  const { isSupported, permission, isSubscribed, enableNotifications } = usePushNotifications()
+  const [testPushLoading, setTestPushLoading] = useState(false)
+  const [testPushMsg, setTestPushMsg] = useState('')
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMsg, setResendMsg] = useState('')
 
@@ -178,6 +182,54 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+
+        {/* Notifications */}
+        {isSupported && (
+          <div className="mt-4 w-full bg-zinc-900 rounded-2xl p-5 space-y-3">
+            <p className="text-white font-bold">Notifications</p>
+            <div className="flex items-center justify-between">
+              <p className="text-gray-400 text-sm">
+                Status:{' '}
+                <span className={isSubscribed ? 'text-green-400' : permission === 'denied' ? 'text-red-400' : 'text-yellow-400'}>
+                  {isSubscribed ? 'Enabled' : permission === 'denied' ? 'Blocked' : 'Not enabled'}
+                </span>
+              </p>
+              {!isSubscribed && permission !== 'denied' && (
+                <button
+                  onClick={enableNotifications}
+                  className="text-brand-400 text-xs font-semibold underline"
+                >
+                  Enable
+                </button>
+              )}
+            </div>
+            {isSubscribed && (
+              <div>
+                <button
+                  onClick={async () => {
+                    setTestPushLoading(true)
+                    setTestPushMsg('')
+                    try {
+                      await pushApi.testPush()
+                      setTestPushMsg('Test notification sent!')
+                    } catch {
+                      setTestPushMsg('Failed to send test notification')
+                    } finally {
+                      setTestPushLoading(false)
+                    }
+                  }}
+                  disabled={testPushLoading}
+                  className="w-full bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-xl transition-colors"
+                >
+                  {testPushLoading ? 'Sending…' : 'Send test notification'}
+                </button>
+                {testPushMsg && (
+                  <p className="text-gray-400 text-xs mt-2 text-center">{testPushMsg}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Change Username */}
         <div className="mt-4 w-full bg-zinc-900 rounded-2xl overflow-hidden">
