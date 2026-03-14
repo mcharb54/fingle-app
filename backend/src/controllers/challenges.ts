@@ -164,8 +164,8 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
       from: sender,
     })
     sendPushToUser(challenge.receiverId, {
-      title: `${sender?.username ?? 'Someone'} challenged you!`,
-      body: 'Tap to guess their fingers 👆',
+      title: `${sender?.username ?? 'Someone'} fingled you!`,
+      body: 'Tap to guess which fingers',
       url: '/',
     }).catch(() => {/* non-fatal */})
   }
