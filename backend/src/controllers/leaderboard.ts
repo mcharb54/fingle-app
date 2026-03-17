@@ -35,10 +35,15 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
 
   // Weekly / Monthly: aggregate Guess.points within the window
   const now = new Date()
-  const startDate =
-    period === 'weekly'
-      ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  let startDate: Date
+  if (period === 'weekly') {
+    // Start of the current week: Sunday at 00:00:00.000
+    startDate = new Date(now)
+    startDate.setDate(now.getDate() - now.getDay())
+    startDate.setHours(0, 0, 0, 0)
+  } else {
+    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  }
 
   const results = await prisma.guess.groupBy({
     by: ['userId'],
