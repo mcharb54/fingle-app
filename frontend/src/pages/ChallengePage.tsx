@@ -63,7 +63,15 @@ export default function ChallengePage() {
       const { isCorrect, correctCount } = await challengesApi.checkCount(challenge.id, count)
       setCountCorrect(isCorrect)
       if (!isCorrect && correctCount !== undefined) setActualCount(correctCount)
-      setStep('fingers')
+
+      if (challenge.fingerCount === 5) {
+        const allFingers: FingerName[] = ['thumb', 'index', 'middle', 'ring', 'pinky']
+        const { result } = await challengesApi.guess(challenge.id, count, allFingers)
+        setReveal(result)
+        setStep('reveal')
+      } else {
+        setStep('fingers')
+      }
     } catch (err) {
       console.error(err)
     } finally {
