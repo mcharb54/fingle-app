@@ -73,6 +73,11 @@ export default function SendPage() {
     )
   }
 
+  function toggleSelectAll() {
+    const allIds = friends.map(({ user }) => user.id)
+    setSelectedFriendIds((prev) => (prev.length === allIds.length ? [] : allIds))
+  }
+
   async function sendChallenges() {
     if (!capturedBlobRef.current || selectedFriendIds.length === 0) return
     setSending(true)
@@ -214,6 +219,31 @@ export default function SendPage() {
           ) : (
             <>
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                {/* Send to all */}
+                <button
+                  onClick={toggleSelectAll}
+                  className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors border ${
+                    selectedFriendIds.length === friends.length
+                      ? 'bg-brand-500/20 border-brand-500/60'
+                      : 'bg-zinc-900 border-transparent hover:bg-zinc-800'
+                  }`}
+                >
+                  <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center text-xl flex-shrink-0">
+                    👥
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-white font-semibold">Send to all</p>
+                    <p className="text-gray-500 text-xs">{friends.length} friends</p>
+                  </div>
+                  <div
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      selectedFriendIds.length === friends.length ? 'bg-brand-500 border-brand-500' : 'border-white/30'
+                    }`}
+                  >
+                    {selectedFriendIds.length === friends.length && <span className="text-white text-xs font-bold">✓</span>}
+                  </div>
+                </button>
+
                 {friends.map(({ user }) => {
                   const isSelected = selectedFriendIds.includes(user.id)
                   return (
