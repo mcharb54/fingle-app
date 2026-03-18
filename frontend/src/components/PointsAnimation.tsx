@@ -34,7 +34,9 @@ export default function PointsAnimation({ points, isCountCorrect, isFingersCorre
             <div className="text-7xl mb-2">😬</div>
             <p className="text-white font-bold text-2xl">Wrong guess</p>
             <p className="text-gray-400 text-sm mt-1">
-              It was {correctCount} — {correctFingers.join(', ')}
+              {correctCount === 5
+                ? 'It was all 5 — no points'
+                : `It was ${correctCount} — ${correctFingers.join(', ')}`}
             </p>
           </>
         )}
