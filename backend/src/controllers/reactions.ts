@@ -2,7 +2,7 @@ import { Response } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
 
-const ALLOWED_EMOJIS = ['❤️', '😂', '😮', '🔥', '👏', '😢']
+const ALLOWED_EMOJIS = ['👍', '👎', '🫶', '👌', '🤙', '🖕', '✌️', '🙌', '🤟', '🤘', '🙏']
 
 export async function toggleReaction(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params

@@ -34,6 +34,7 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
   const [reactions, setReactions] = useState<Reaction[]>(challenge.reactions ?? [])
   // Comments state (optimistic)
   const [comments, setComments] = useState<Comment[]>(challenge.comments ?? [])
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
@@ -163,28 +164,74 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                 : isAnswered ? `+${challenge.guess!.points} pts` : 'Waiting…'}
             </div>
           )}
+
+          {/* Emoji picker + reaction tags overlay */}
+          {photoVisible && (
+            <>
+              {/* Expanded emoji picker */}
+              {showEmojiPicker && (
+                <div className="absolute bottom-12 left-2 right-2 bg-black/75 backdrop-blur-sm rounded-2xl p-2 flex flex-wrap gap-1.5 justify-center z-20">
+                  {REACTION_EMOJIS.map((emoji) => {
+                    const entry = reactionCounts.find((r) => r.emoji === emoji)
+                    return (
+                      <button
+                        key={emoji}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleReaction(emoji)
+                          setShowEmojiPicker(false)
+                        }}
+                        className={`text-2xl p-1 rounded-full transition-transform hover:scale-110 active:scale-95 ${entry?.reacted ? 'bg-brand-500/40' : ''}`}
+                      >
+                        {emoji}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Reaction tags — bottom right */}
+              <div className="absolute bottom-3 right-3 flex items-center gap-1">
+                {reactionCounts
+                  .filter(({ count }) => count > 0)
+                  .map(({ emoji, count, reacted }) => (
+                    <button
+                      key={emoji}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleReaction(emoji)
+                      }}
+                      className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-base backdrop-blur-sm border transition-colors ${
+                        reacted
+                          ? 'bg-brand-500/60 border-brand-400'
+                          : 'bg-black/60 border-white/20'
+                      }`}
+                    >
+                      <span>{emoji}</span>
+                      {count > 1 && <span className="text-xs text-white font-semibold leading-none">{count}</span>}
+                    </button>
+                  ))}
+              </div>
+
+              {/* Emoji picker trigger — bottom left */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowEmojiPicker((v) => !v)
+                }}
+                className={`absolute bottom-3 left-3 w-9 h-9 rounded-full flex items-center justify-center text-xl backdrop-blur-sm border transition-colors z-10 ${
+                  showEmojiPicker
+                    ? 'bg-white/25 border-white/40'
+                    : 'bg-black/50 border-white/10'
+                }`}
+              >
+                {reactionCounts.find(({ reacted }) => reacted)?.emoji ?? '🙂'}
+              </button>
+            </>
+          )}
         </div>
       )}
 
-      {/* Reactions */}
-      {photoVisible && (
-        <div className="px-4 pt-3 flex gap-2 flex-wrap">
-          {reactionCounts.map(({ emoji, count, reacted }) => (
-            <button
-              key={emoji}
-              onClick={() => handleReaction(emoji)}
-              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-sm transition-colors ${
-                reacted
-                  ? 'bg-brand-500/30 border border-brand-400'
-                  : 'bg-zinc-800 border border-transparent hover:bg-zinc-700'
-              }`}
-            >
-              <span>{emoji}</span>
-              {count > 0 && <span className="text-xs text-gray-300">{count}</span>}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Footer */}
       <div className="px-4 py-3 flex items-center gap-3">
