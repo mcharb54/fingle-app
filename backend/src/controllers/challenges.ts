@@ -174,24 +174,40 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
 }
 
 export async function getReceivedChallenges(req: AuthRequest, res: Response): Promise<void> {
-  const challenges = await prisma.challenge.findMany({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = await (prisma.challenge.findMany as any)({
     where: { receiverId: req.userId! },
-    orderBy: { createdAt: 'desc' },
     include: {
       sender: { select: { id: true, username: true, avatarUrl: true } },
       guess: { select: { points: true, isCountCorrect: true, isFingersCorrect: true, fingerCountGuess: true, whichFingersGuess: true, createdAt: true } },
+      reactions: { include: { user: { select: { id: true, username: true } } } },
+      comments: {
+        include: { user: { select: { id: true, username: true, avatarUrl: true } } },
+        orderBy: { createdAt: 'asc' },
+      },
     },
   })
-  res.json({ challenges })
+
+  // Unguessed first (newest first within each group), then guessed
+  const unguessed = all.filter((c: any) => !c.guess).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const guessed = all.filter((c: any) => c.guess).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  res.json({ challenges: [...unguessed, ...guessed] })
 }
 
 export async function getSentChallenges(req: AuthRequest, res: Response): Promise<void> {
-  const challenges = await prisma.challenge.findMany({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const challenges: any[] = await (prisma.challenge.findMany as any)({
     where: { senderId: req.userId! },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: 'desc' as const },
     include: {
       receiver: { select: { id: true, username: true, avatarUrl: true } },
       guess: { select: { points: true, isCountCorrect: true, isFingersCorrect: true, createdAt: true } },
+      reactions: { include: { user: { select: { id: true, username: true } } } },
+      comments: {
+        include: { user: { select: { id: true, username: true, avatarUrl: true } } },
+        orderBy: { createdAt: 'asc' as const },
+      },
     },
   })
   res.json({ challenges })

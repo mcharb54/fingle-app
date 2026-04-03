@@ -40,6 +40,21 @@ export interface GuessResult {
   createdAt: string
 }
 
+export interface Reaction {
+  id: string
+  emoji: string
+  userId: string
+  user: { id: string; username: string }
+}
+
+export interface Comment {
+  id: string
+  userId: string
+  text: string
+  createdAt: string
+  user: { id: string; username: string; avatarUrl: string | null }
+}
+
 export interface Challenge {
   id: string
   senderId: string
@@ -53,6 +68,8 @@ export interface Challenge {
   sender?: PublicUser
   receiver?: PublicUser
   guess?: GuessResult | null
+  reactions?: Reaction[]
+  comments?: Comment[]
 }
 
 export interface FriendEntry {

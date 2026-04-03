@@ -1,4 +1,4 @@
-import type { AdminUser, Challenge, FriendEntry, FriendRequest, PublicUser, User, FingerName } from '../types'
+import type { AdminUser, Challenge, Comment, FriendEntry, FriendRequest, PublicUser, Reaction, User, FingerName } from '../types'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -128,6 +128,28 @@ export const pushApi = {
     }),
   testPush: () =>
     request<{ ok: boolean }>('/push/test', { method: 'POST' }),
+}
+
+// Reactions
+export const reactionsApi = {
+  toggle: (challengeId: string, emoji: string) =>
+    request<{ action: 'added' | 'removed'; emoji: string; reaction?: Reaction }>(
+      `/challenges/${challengeId}/reactions`,
+      { method: 'POST', body: JSON.stringify({ emoji }) },
+    ),
+}
+
+// Comments
+export const commentsApi = {
+  add: (challengeId: string, text: string) =>
+    request<{ comment: Comment }>(`/challenges/${challengeId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  delete: (challengeId: string, commentId: string) =>
+    request<{ message: string }>(`/challenges/${challengeId}/comments/${commentId}`, {
+      method: 'DELETE',
+    }),
 }
 
 // Admin
