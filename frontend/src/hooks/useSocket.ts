@@ -20,11 +20,15 @@ export function useSocket(
       socket = io(apiUrl, { auth: { token }, path: '/socket.io' })
     }
 
-    const entries = Object.entries(handlersRef.current)
-    entries.forEach(([event, handler]) => socket!.on(event, handler))
+    // Wrap each handler so it always calls the latest version from the ref
+    const wrappers: Array<[string, (data: unknown) => void]> = Object.keys(handlersRef.current).map((event) => [
+      event,
+      (data: unknown) => handlersRef.current[event]?.(data),
+    ])
+    wrappers.forEach(([event, handler]) => socket!.on(event, handler))
 
     return () => {
-      entries.forEach(([event, handler]) => socket!.off(event, handler))
+      wrappers.forEach(([event, handler]) => socket!.off(event, handler))
     }
   }, [user])
 }
