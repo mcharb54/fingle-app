@@ -34,7 +34,8 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
   const [reactions, setReactions] = useState<Reaction[]>(challenge.reactions ?? [])
   // Comments state (optimistic)
   const [comments, setComments] = useState<Comment[]>(challenge.comments ?? [])
-  const [showComments, setShowComments] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showAllComments, setShowAllComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const commentInputRef = useRef<HTMLInputElement>(null)
@@ -208,21 +209,6 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
         {!isSent && !isAnswered && !isMinimized && (
           <span className="w-2.5 h-2.5 rounded-full bg-brand-400 flex-shrink-0" />
         )}
-        {/* Comment toggle */}
-        {photoVisible && (
-          <button
-            onClick={() => {
-              setShowComments((v) => !v)
-              if (!showComments) setTimeout(() => commentInputRef.current?.focus(), 100)
-            }}
-            className="text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0 flex items-center gap-1 text-xs"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-              <path fillRule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902.848.137 1.705.248 2.57.331v3.443a.75.75 0 0 0 1.28.53l3.58-3.579a.78.78 0 0 1 .527-.224 41.202 41.202 0 0 0 5.183-.5c1.437-.232 2.43-1.49 2.43-2.903V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0 0 10 2Z" clipRule="evenodd" />
-            </svg>
-            {comments.length > 0 && <span>{comments.length}</span>}
-          </button>
-        )}
         {/* Minimized status badge (inline when photo hidden) */}
         {isMinimized && (
           <span
@@ -278,31 +264,44 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
       </div>
 
       {/* Comments section */}
-      {photoVisible && showComments && (
+      {photoVisible && (
         <div className="px-4 pb-4 border-t border-white/10 mt-1 pt-3 space-y-2">
-          {comments.length === 0 && (
-            <p className="text-gray-600 text-xs">No comments yet</p>
-          )}
-          {comments.map((c) => (
-            <div key={c.id} className="flex items-start gap-2 group">
-              <div className="w-6 h-6 rounded-full bg-brand-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                {c.user.username[0]?.toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-xs font-semibold text-gray-300 mr-1">{c.user.username}</span>
-                <span className="text-xs text-gray-400 break-words">{c.text}</span>
-              </div>
-              {c.userId === user?.id && (
-                <button
-                  onClick={() => handleDeleteComment(c.id)}
-                  className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-opacity text-xs flex-shrink-0"
-                  aria-label="Delete comment"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
+          {(() => {
+            const visible = showAllComments ? comments : comments.slice(0, 3)
+            const hidden = comments.length - 3
+            return (
+              <>
+                {visible.map((c) => (
+                  <div key={c.id} className="flex items-start gap-2 group">
+                    <div className="w-6 h-6 rounded-full bg-brand-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {c.user.username[0]?.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-gray-300 mr-1">{c.user.username}</span>
+                      <span className="text-xs text-gray-400 break-words">{c.text}</span>
+                    </div>
+                    {c.userId === user?.id && (
+                      <button
+                        onClick={() => handleDeleteComment(c.id)}
+                        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-opacity text-xs flex-shrink-0"
+                        aria-label="Delete comment"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {!showAllComments && hidden > 0 && (
+                  <button
+                    onClick={() => setShowAllComments(true)}
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    Show {hidden} more comment{hidden > 1 ? 's' : ''}
+                  </button>
+                )}
+              </>
+            )
+          })()}
           <form onSubmit={handleAddComment} className="flex gap-2 mt-2">
             <input
               ref={commentInputRef}
