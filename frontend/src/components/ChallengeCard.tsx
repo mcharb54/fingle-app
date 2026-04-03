@@ -40,6 +40,8 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
   const commentKey = (challenge.comments ?? []).map(c => c.id).join(',')
   useEffect(() => { setComments(challenge.comments ?? []) }, [commentKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showReactionsPopup, setShowReactionsPopup] = useState(false)
+  const [reactionsFilter, setReactionsFilter] = useState<string | null>(null)
   const [showAllComments, setShowAllComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
@@ -195,7 +197,7 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                 </div>
               )}
 
-              {/* Reaction tags — bottom right */}
+              {/* Reaction tags — bottom right (tap to view who reacted) */}
               <div className="absolute bottom-3 right-3 flex items-center gap-1">
                 {reactionCounts
                   .filter(({ count }) => count > 0)
@@ -204,7 +206,8 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                       key={emoji}
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleReaction(emoji)
+                        setReactionsFilter(null)
+                        setShowReactionsPopup(true)
                       }}
                       className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-base backdrop-blur-sm border transition-colors ${
                         reacted
@@ -237,6 +240,74 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
         </div>
       )}
 
+
+      {/* Reactions popup — who reacted */}
+      {showReactionsPopup && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowReactionsPopup(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="relative w-full max-w-md bg-zinc-900 rounded-t-2xl max-h-[60vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <h3 className="text-white font-bold text-lg">Reactions ({reactions.length})</h3>
+              <button
+                onClick={() => setShowReactionsPopup(false)}
+                className="text-gray-400 hover:text-white text-xl leading-none p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Filter tabs */}
+            <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
+              <button
+                onClick={() => setReactionsFilter(null)}
+                className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors flex-shrink-0 ${
+                  reactionsFilter === null ? 'bg-brand-500 text-white' : 'bg-zinc-800 text-gray-400'
+                }`}
+              >
+                All
+              </button>
+              {reactionCounts
+                .filter(({ count }) => count > 0)
+                .map(({ emoji, count }) => (
+                  <button
+                    key={emoji}
+                    onClick={() => setReactionsFilter(emoji)}
+                    className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors flex-shrink-0 flex items-center gap-1 ${
+                      reactionsFilter === emoji ? 'bg-brand-500 text-white' : 'bg-zinc-800 text-gray-400'
+                    }`}
+                  >
+                    <span>{emoji}</span>
+                    <span>{count}</span>
+                  </button>
+                ))}
+            </div>
+
+            {/* User list */}
+            <div className="overflow-y-auto px-4 pb-4 space-y-3">
+              {reactions
+                .filter((r) => reactionsFilter === null || r.emoji === reactionsFilter)
+                .map((r) => (
+                  <div key={r.id} className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      {r.user.username[0]?.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">
+                        {r.user.username}
+                        {r.userId === user?.id && <span className="text-gray-500 font-normal ml-1">You</span>}
+                      </p>
+                    </div>
+                    <span className="text-xl flex-shrink-0">{r.emoji}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="px-4 py-3 flex items-center gap-3">
