@@ -16,7 +16,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers['Content-Type'] = 'application/json'
   }
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers })
+  const res = await fetch(`${BASE}${path}`, { ...options, headers, cache: 'no-store' })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'Request failed')
   return data as T

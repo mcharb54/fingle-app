@@ -9,6 +9,7 @@ const PAGE_SIZE = 5
 
 interface SentGroup {
   main: Challenge
+  challengeIds: string[]
   recipients: PublicUser[]
   answeredCount: number
 }
@@ -18,14 +19,29 @@ function groupSentByPhoto(challenges: Challenge[]): SentGroup[] {
   for (const c of challenges) {
     if (!map.has(c.photoUrl)) {
       map.set(c.photoUrl, {
-        main: c,
+        main: { ...c },
+        challengeIds: [c.id],
         recipients: c.receiver ? [c.receiver] : [],
         answeredCount: c.guess ? 1 : 0,
       })
     } else {
       const g = map.get(c.photoUrl)!
+      g.challengeIds.push(c.id)
       if (c.receiver) g.recipients.push(c.receiver)
       if (c.guess) g.answeredCount++
+      // Merge comments and reactions from all challenges in the group
+      const existingCommentIds = new Set((g.main.comments ?? []).map(cm => cm.id))
+      for (const cm of c.comments ?? []) {
+        if (!existingCommentIds.has(cm.id)) {
+          g.main.comments = [...(g.main.comments ?? []), cm]
+        }
+      }
+      const existingReactionIds = new Set((g.main.reactions ?? []).map(r => r.id))
+      for (const r of c.reactions ?? []) {
+        if (!existingReactionIds.has(r.id)) {
+          g.main.reactions = [...(g.main.reactions ?? []), r]
+        }
+      }
     }
   }
   return [...map.values()]
@@ -111,7 +127,7 @@ export default function Feed() {
   // Ensure the highlighted card is within the visible window
   const highlightIndex = highlightId
     ? tab === 'sent'
-      ? sentGroups.findIndex(({ main }) => main.id === highlightId)
+      ? sentGroups.findIndex(({ challengeIds }) => challengeIds.includes(highlightId))
       : challenges.findIndex((c) => c.id === highlightId)
     : -1
   const effectiveVisible = highlightIndex >= 0
@@ -162,8 +178,12 @@ export default function Feed() {
             </p>
           </div>
         ) : tab === 'sent' ? (
-          sentGroups.slice(0, effectiveVisible).map(({ main, recipients, answeredCount }) => (
+          sentGroups.slice(0, effectiveVisible).map(({ main, challengeIds, recipients, answeredCount }) => (
             <div key={main.id} id={`challenge-${main.id}`}>
+              {/* Extra anchor IDs so notification highlights work for any challenge in the group */}
+              {challengeIds.filter(cid => cid !== main.id).map(cid => (
+                <div key={cid} id={`challenge-${cid}`} />
+              ))}
               <ChallengeCard
                 challenge={main}
                 isSent
