@@ -25,6 +25,8 @@ model User {
   sentChallenges             Challenge[]                @relation("Sent")
   receivedChallenges         Challenge[]                @relation("Received")
   guesses                    Guess[]
+  reactions                  Reaction[]
+  comments                   Comment[]
   friendsInitiated           Friend[]                   @relation("Initiator")
   friendsReceived            Friend[]                   @relation("Receiver")
   emailVerificationTokens    EmailVerificationToken[]
@@ -93,9 +95,35 @@ model Challenge {
   createdAt    DateTime  @default(now())
   expiresAt    DateTime?
 
-  sender   User   @relation("Sent", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver User   @relation("Received", fields: [receiverId], references: [id], onDelete: Cascade)
-  guess    Guess?
+  sender    User       @relation("Sent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver  User       @relation("Received", fields: [receiverId], references: [id], onDelete: Cascade)
+  guess     Guess?
+  reactions Reaction[]
+  comments  Comment[]
+}
+
+model Reaction {
+  id          String   @id @default(cuid())
+  challengeId String
+  userId      String
+  emoji       String
+  createdAt   DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId, emoji])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  challengeId String
+  userId      String
+  text        String
+  createdAt   DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Guess {
