@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Challenge, Comment, PublicUser, Reaction } from '../types'
 import { reactionsApi, commentsApi } from '../api'
@@ -30,10 +30,15 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
   const isAnswered = !!challenge.guess
   const [isMinimized, setIsMinimized] = useState(defaultMinimized)
 
-  // Reactions state (optimistic)
+  // Reactions state (optimistic) — sync when server data changes
   const [reactions, setReactions] = useState<Reaction[]>(challenge.reactions ?? [])
-  // Comments state (optimistic)
+  const reactionKey = (challenge.reactions ?? []).map(r => r.id).join(',')
+  useEffect(() => { setReactions(challenge.reactions ?? []) }, [reactionKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Comments state (optimistic) — sync when server data changes
   const [comments, setComments] = useState<Comment[]>(challenge.comments ?? [])
+  const commentKey = (challenge.comments ?? []).map(c => c.id).join(',')
+  useEffect(() => { setComments(challenge.comments ?? []) }, [commentKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showAllComments, setShowAllComments] = useState(false)
   const [commentText, setCommentText] = useState('')
