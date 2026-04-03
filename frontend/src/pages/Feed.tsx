@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { challengesApi } from '../api'
 import type { Challenge, PublicUser } from '../types'
 import ChallengeCard from '../components/ChallengeCard'
@@ -31,9 +32,13 @@ function groupSentByPhoto(challenges: Challenge[]): SentGroup[] {
 }
 
 export default function Feed() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'inbox' | 'sent'>('inbox')
+  const [tab, setTab] = useState<'inbox' | 'sent'>(
+    searchParams.get('tab') === 'sent' ? 'sent' : 'inbox'
+  )
+  const [highlightId] = useState<string | null>(searchParams.get('highlight'))
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const minimizePhotos = localStorage.getItem('fingle_minimize_photos') === 'true'
@@ -77,6 +82,16 @@ export default function Feed() {
     return () => observer.disconnect()
   }, [loading])
 
+  // After data loads, scroll to highlighted card and clear URL params
+  useEffect(() => {
+    if (loading || !highlightId) return
+    const el = document.getElementById(`challenge-${highlightId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setSearchParams({}, { replace: true })
+    }
+  }, [loading, highlightId, setSearchParams])
+
   useSocket({
     new_challenge: () => {
       if (tab === 'inbox') load()
@@ -84,13 +99,26 @@ export default function Feed() {
     challenge_guessed: () => {
       if (tab === 'sent') load()
     },
+    reaction_updated: () => load(),
+    comment_updated: () => load(),
   })
 
   const unread = challenges.filter((c) => !c.guess && !c.seen).length
 
   const sentGroups = tab === 'sent' ? groupSentByPhoto(challenges) : []
   const totalItems = tab === 'sent' ? sentGroups.length : challenges.length
-  const hasMore = visibleCount < totalItems
+
+  // Ensure the highlighted card is within the visible window
+  const highlightIndex = highlightId
+    ? tab === 'sent'
+      ? sentGroups.findIndex(({ main }) => main.id === highlightId)
+      : challenges.findIndex((c) => c.id === highlightId)
+    : -1
+  const effectiveVisible = highlightIndex >= 0
+    ? Math.max(visibleCount, highlightIndex + 1)
+    : visibleCount
+
+  const hasMore = effectiveVisible < totalItems
 
   return (
     <div className="min-h-full bg-black">
@@ -134,19 +162,22 @@ export default function Feed() {
             </p>
           </div>
         ) : tab === 'sent' ? (
-          sentGroups.slice(0, visibleCount).map(({ main, recipients, answeredCount }) => (
-            <ChallengeCard
-              key={main.id}
-              challenge={main}
-              isSent
-              defaultMinimized={minimizePhotos}
-              recipients={recipients}
-              answeredCount={answeredCount}
-            />
+          sentGroups.slice(0, effectiveVisible).map(({ main, recipients, answeredCount }) => (
+            <div key={main.id} id={`challenge-${main.id}`}>
+              <ChallengeCard
+                challenge={main}
+                isSent
+                defaultMinimized={minimizePhotos}
+                recipients={recipients}
+                answeredCount={answeredCount}
+              />
+            </div>
           ))
         ) : (
-          challenges.slice(0, visibleCount).map((c) => (
-            <ChallengeCard key={c.id} challenge={c} defaultMinimized={minimizePhotos} />
+          challenges.slice(0, effectiveVisible).map((c) => (
+            <div key={c.id} id={`challenge-${c.id}`}>
+              <ChallengeCard challenge={c} defaultMinimized={minimizePhotos} />
+            </div>
           ))
         )}
 

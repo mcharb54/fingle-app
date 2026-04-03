@@ -1,6 +1,8 @@
 import { Response } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
+import { emitToUser } from '../services/socket.js'
+import { sendPushToUser } from '../services/webpush.js'
 
 export async function addComment(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params
@@ -36,6 +38,18 @@ export async function addComment(req: AuthRequest, res: Response): Promise<void>
     include: { user: { select: { id: true, username: true, avatarUrl: true } } },
   })
 
+  const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
+  emitToUser(otherId, 'comment_updated', { challengeId: id })
+  emitToUser(req.userId!, 'comment_updated', { challengeId: id })
+
+  const preview = comment.text.length > 80 ? comment.text.slice(0, 80) + '…' : comment.text
+  const tab = challenge.senderId === req.userId ? 'inbox' : 'sent'
+  sendPushToUser(otherId, {
+    title: `${comment.user.username} commented`,
+    body: preview,
+    url: `/?tab=${tab}&highlight=${id}`,
+  }).catch(() => {/* non-fatal */})
+
   res.status(201).json({ comment })
 }
 
@@ -54,6 +68,14 @@ export async function deleteComment(req: AuthRequest, res: Response): Promise<vo
     return
   }
 
+  const challenge = await prisma.challenge.findUnique({ where: { id } })
   await prisma.comment.delete({ where: { id: commentId } })
+
+  if (challenge) {
+    const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
+    emitToUser(otherId, 'comment_updated', { challengeId: id })
+    emitToUser(req.userId!, 'comment_updated', { challengeId: id })
+  }
+
   res.json({ message: 'Comment deleted' })
 }
