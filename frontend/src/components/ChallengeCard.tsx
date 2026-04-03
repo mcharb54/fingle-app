@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import type { Challenge, Comment, PublicUser, Reaction } from '../types'
 import { reactionsApi, commentsApi } from '../api'
@@ -46,6 +47,13 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const commentInputRef = useRef<HTMLInputElement>(null)
+
+  // Lock body scroll while reactions popup is open
+  useEffect(() => {
+    if (!showReactionsPopup) return
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [showReactionsPopup])
 
   function handleTap() {
     if (!isSent && !isAnswered) navigate(`/challenge/${challenge.id}`)
@@ -241,9 +249,9 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
       )}
 
 
-      {/* Reactions popup — who reacted */}
-      {showReactionsPopup && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowReactionsPopup(false)}>
+      {/* Reactions popup — who reacted (portaled to body to escape stacking contexts) */}
+      {showReactionsPopup && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center" onClick={() => setShowReactionsPopup(false)}>
           <div className="absolute inset-0 bg-black/60" />
           <div
             className="relative w-full max-w-md bg-zinc-900 rounded-t-2xl max-h-[60vh] flex flex-col"
@@ -306,7 +314,8 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                 ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Footer */}
