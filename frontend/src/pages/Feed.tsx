@@ -115,7 +115,49 @@ export default function Feed() {
     challenge_guessed: () => {
       if (tab === 'sent') load()
     },
-    reaction_updated: () => load(),
+    reaction_updated: (data: unknown) => {
+      const evt = data as {
+        challengeId: string
+        emoji: string
+        action: 'added' | 'removed'
+        reactionId: string
+        byUserId: string
+        byUsername: string
+      }
+      // Apply directly to local state for immediate feedback
+      setChallenges((prev) =>
+        prev.map((c) => {
+          if (c.id !== evt.challengeId) return c
+          const reactions = c.reactions ?? []
+          if (evt.action === 'added') {
+            // Avoid duplicates (e.g. from optimistic update)
+            if (reactions.some((r) => r.id === evt.reactionId)) return c
+            return {
+              ...c,
+              reactions: [
+                // Replace any optimistic entry for this user+emoji
+                ...reactions.filter(
+                  (r) => !(r.id === 'optimistic' && r.userId === evt.byUserId && r.emoji === evt.emoji),
+                ),
+                {
+                  id: evt.reactionId,
+                  emoji: evt.emoji,
+                  userId: evt.byUserId,
+                  user: { id: evt.byUserId, username: evt.byUsername },
+                },
+              ],
+            }
+          } else {
+            return {
+              ...c,
+              reactions: reactions.filter(
+                (r) => !(r.userId === evt.byUserId && r.emoji === evt.emoji),
+              ),
+            }
+          }
+        }),
+      )
+    },
     comment_updated: () => load(),
   })
 
