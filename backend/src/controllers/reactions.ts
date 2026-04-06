@@ -33,23 +33,41 @@ export async function toggleReaction(req: AuthRequest, res: Response): Promise<v
     where: { challengeId_userId_emoji: { challengeId: id, userId: req.userId!, emoji } },
   })
 
-  const notify = (action: 'added' | 'removed') => {
-    const payload = { challengeId: id, emoji, action, byUserId: req.userId }
-    const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
-    emitToUser(otherId, 'reaction_updated', payload)
-    emitToUser(req.userId!, 'reaction_updated', payload)
-  }
+  const reactor = await prisma.user.findUnique({
+    where: { id: req.userId! },
+    select: { id: true, username: true },
+  })
+
+  const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
 
   if (existing) {
     await prisma.reaction.delete({ where: { id: existing.id } })
-    notify('removed')
+    const payload = {
+      challengeId: id,
+      emoji,
+      action: 'removed' as const,
+      reactionId: existing.id,
+      byUserId: req.userId,
+      byUsername: reactor?.username,
+    }
+    emitToUser(otherId, 'reaction_updated', payload)
+    emitToUser(req.userId!, 'reaction_updated', payload)
     res.json({ action: 'removed', emoji })
   } else {
     const reaction = await prisma.reaction.create({
       data: { challengeId: id, userId: req.userId!, emoji },
       include: { user: { select: { id: true, username: true } } },
     })
-    notify('added')
+    const payload = {
+      challengeId: id,
+      emoji,
+      action: 'added' as const,
+      reactionId: reaction.id,
+      byUserId: req.userId,
+      byUsername: reactor?.username,
+    }
+    emitToUser(otherId, 'reaction_updated', payload)
+    emitToUser(req.userId!, 'reaction_updated', payload)
     res.status(201).json({ action: 'added', reaction })
   }
 }
