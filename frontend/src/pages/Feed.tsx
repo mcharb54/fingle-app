@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { challengesApi } from '../api'
-import type { Challenge, PublicUser } from '../types'
+import type { Challenge, Comment, PublicUser } from '../types'
 import ChallengeCard from '../components/ChallengeCard'
 import { useSocket } from '../hooks/useSocket'
 
@@ -158,7 +158,29 @@ export default function Feed() {
         }),
       )
     },
-    comment_updated: () => load(),
+    comment_updated: (data: unknown) => {
+      const evt = data as {
+        challengeId: string
+        action: 'added' | 'deleted'
+        comment?: Comment
+        commentId?: string
+      }
+      // Apply directly to local state for immediate feedback
+      setChallenges((prev) =>
+        prev.map((c) => {
+          if (c.id !== evt.challengeId) return c
+          const comments = c.comments ?? []
+          if (evt.action === 'added' && evt.comment) {
+            // Avoid duplicates (e.g. the commenter already appended via the API response)
+            if (comments.some((cm) => cm.id === evt.comment!.id)) return c
+            return { ...c, comments: [...comments, evt.comment] }
+          } else if (evt.action === 'deleted' && evt.commentId) {
+            return { ...c, comments: comments.filter((cm) => cm.id !== evt.commentId) }
+          }
+          return c
+        }),
+      )
+    },
   })
 
   const unread = challenges.filter((c) => !c.guess && !c.seen).length

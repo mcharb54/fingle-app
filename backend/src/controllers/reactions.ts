@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
 import { emitToUser } from '../services/socket.js'
+import { sendPushToUser } from '../services/webpush.js'
 
 const ALLOWED_EMOJIS = ['👍', '👎', '🫶', '👌', '🤙', '🖕', '✌️', '🙌', '🤟', '🤘', '🙏']
 
@@ -68,6 +69,14 @@ export async function toggleReaction(req: AuthRequest, res: Response): Promise<v
     }
     emitToUser(otherId, 'reaction_updated', payload)
     emitToUser(req.userId!, 'reaction_updated', payload)
+
+    const tab = challenge.senderId === req.userId ? 'inbox' : 'sent'
+    sendPushToUser(otherId, {
+      title: `${reactor?.username ?? 'Someone'} reacted ${emoji}`,
+      body: 'Tap to see it',
+      url: `/?tab=${tab}&highlight=${id}`,
+    }).catch(() => {/* non-fatal */})
+
     res.status(201).json({ action: 'added', reaction })
   }
 }
