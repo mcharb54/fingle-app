@@ -39,8 +39,9 @@ export async function addComment(req: AuthRequest, res: Response): Promise<void>
   })
 
   const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
-  emitToUser(otherId, 'comment_updated', { challengeId: id })
-  emitToUser(req.userId!, 'comment_updated', { challengeId: id })
+  const payload = { challengeId: id, action: 'added', comment }
+  emitToUser(otherId, 'comment_updated', payload)
+  emitToUser(req.userId!, 'comment_updated', payload)
 
   const preview = comment.text.length > 80 ? comment.text.slice(0, 80) + '…' : comment.text
   const tab = challenge.senderId === req.userId ? 'inbox' : 'sent'
@@ -73,8 +74,9 @@ export async function deleteComment(req: AuthRequest, res: Response): Promise<vo
 
   if (challenge) {
     const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
-    emitToUser(otherId, 'comment_updated', { challengeId: id })
-    emitToUser(req.userId!, 'comment_updated', { challengeId: id })
+    const payload = { challengeId: id, action: 'deleted', commentId }
+    emitToUser(otherId, 'comment_updated', payload)
+    emitToUser(req.userId!, 'comment_updated', payload)
   }
 
   res.json({ message: 'Comment deleted' })
