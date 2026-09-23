@@ -342,7 +342,9 @@ export default function ProfilePage() {
                 onChange={(e) => setNewUsername(e.target.value)}
                 required
                 minLength={2}
-                maxLength={30}
+                maxLength={20}
+                pattern="[A-Za-z0-9._\-]{2,20}"
+                title="2–20 letters, numbers, dots, dashes or underscores"
                 className="field"
               />
               <button type="submit" disabled={unLoading} className="btn-pen w-full">

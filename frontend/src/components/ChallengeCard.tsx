@@ -351,7 +351,7 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
         <div className="mx-1 mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-base">
           {scoreLine.map(({ name, points }) => (
             <span key={name} className="whitespace-nowrap">
-              <span className="font-marker text-sm mr-1">{name}</span>
+              <span className={`font-marker text-sm mr-1 ${points !== null ? 'hi' : 'text-pen-soft'}`}>{name}</span>
               {points === null ? (
                 <span className="text-pen-faint">…</span>
               ) : (

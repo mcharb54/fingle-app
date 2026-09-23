@@ -15,6 +15,7 @@ export async function searchUsers(req: AuthRequest, res: Response): Promise<void
       AND: [
         { username: { contains: q, mode: 'insensitive' } },
         { id: { not: req.userId! } },
+        { isBanned: false },
       ],
     },
     select: { id: true, username: true, avatarUrl: true, totalScore: true },
@@ -136,8 +137,9 @@ export async function getMembers(req: AuthRequest, res: Response): Promise<void>
       excludeIds.add(f.receiverId)
     }
 
+    // Only verified, active accounts are suggested — open sign-up attracts bot accounts
     const users = await prisma.user.findMany({
-      where: { id: { notIn: [...excludeIds] } },
+      where: { id: { notIn: [...excludeIds] }, emailVerified: true, isBanned: false },
       select: { id: true, username: true, avatarUrl: true, totalScore: true },
       take: 30,
       orderBy: { totalScore: 'desc' },
