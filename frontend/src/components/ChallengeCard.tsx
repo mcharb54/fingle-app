@@ -66,6 +66,7 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
   const displayName = isSent && recipients && recipients.length > 0
     ? recipients.map((r) => r.username).join(', ')
     : person?.username ?? ''
+  const coRecipientNames = !isSent ? (challenge.coRecipients ?? []).map((r) => r.username) : []
 
   // Show social features only when photo is visible and accessible
   const photoVisible = !isMinimized && (isSent || isAnswered)
@@ -89,7 +90,15 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
       ])
     }
     try {
-      await reactionsApi.toggle(challenge.id, emoji)
+      const res = await reactionsApi.toggle(challenge.id, emoji)
+      const real = res.reaction
+      if (res.action === 'added' && real) {
+        // Swap the placeholder for the saved reaction (the socket echo may have landed first)
+        setReactions((prev) => [
+          ...prev.filter((r) => r.id !== real.id && !(r.id === 'optimistic' && r.userId === real.userId && r.emoji === real.emoji)),
+          real,
+        ])
+      }
     } catch {
       // Revert on failure
       setReactions(challenge.reactions ?? [])
@@ -103,7 +112,8 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
     setSubmittingComment(true)
     try {
       const { comment } = await commentsApi.add(challenge.id, text)
-      setComments((prev) => [...prev, comment])
+      // The socket echo can arrive before this response — don't show it twice
+      setComments((prev) => (prev.some((c) => c.id === comment.id) ? prev : [...prev, comment]))
       setCommentText('')
     } catch {
       // ignore
@@ -334,11 +344,17 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                 : isAnswered
                   ? `Answered · ${timeAgo(challenge.guess!.createdAt)}`
                   : `Sent · ${timeAgo(challenge.createdAt)}`
-              : timeAgo(challenge.createdAt)}
+              : coRecipientNames.length > 0
+                ? `${timeAgo(challenge.createdAt)} · with ${coRecipientNames.join(', ')}`
+                : timeAgo(challenge.createdAt)}
           </p>
         </div>
         {!isSent && !isAnswered && !isMinimized && (
           <span className="w-2.5 h-2.5 rounded-full bg-brand-400 flex-shrink-0" />
+        )}
+        {/* Comment count while the thread is hidden */}
+        {isMinimized && (isSent || isAnswered) && comments.length > 0 && (
+          <span className="text-xs text-gray-400 flex-shrink-0">💬 {comments.length}</span>
         )}
         {/* Minimized status badge (inline when photo hidden) */}
         {isMinimized && (

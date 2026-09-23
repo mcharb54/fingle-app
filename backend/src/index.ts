@@ -6,6 +6,7 @@ import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import { Server } from 'socket.io'
 import { initSocket } from './services/socket.js'
+import { backfillChallengeGroups } from './services/fingleGroup.js'
 
 import authRoutes from './routes/auth.js'
 import friendRoutes from './routes/friends.js'
@@ -79,6 +80,11 @@ app.use('/api/push', pushRoutes)
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
 const PORT = Number(process.env.PORT ?? 3001)
-server.listen(PORT, () => {
-  console.log(`Fingle backend running on http://localhost:${PORT}`)
-})
+
+backfillChallengeGroups()
+  .catch((err) => console.error('[backfill] challenge groups failed:', err))
+  .finally(() => {
+    server.listen(PORT, () => {
+      console.log(`Fingle backend running on http://localhost:${PORT}`)
+    })
+  })

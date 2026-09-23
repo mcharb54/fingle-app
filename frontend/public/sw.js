@@ -22,6 +22,8 @@ self.addEventListener('push', (event) => {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: { url: data.url ?? '/' },
+      // Same tag replaces the previous notification for that fingle instead of stacking
+      ...(data.tag ? { tag: data.tag, renotify: true } : {}),
     }),
   )
 })

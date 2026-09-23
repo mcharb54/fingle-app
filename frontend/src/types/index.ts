@@ -59,6 +59,8 @@ export interface Challenge {
   id: string
   senderId: string
   receiverId: string
+  // Shared by all challenges from one multi-recipient send; comments/reactions are per group
+  groupId: string
   photoUrl: string
   fingerCount: number
   whichFingers: FingerName[]
@@ -70,6 +72,8 @@ export interface Challenge {
   guess?: GuessResult | null
   reactions?: Reaction[]
   comments?: Comment[]
+  // Inbox only: other friends the same fingle was sent to
+  coRecipients?: PublicUser[]
 }
 
 export interface FriendEntry {
