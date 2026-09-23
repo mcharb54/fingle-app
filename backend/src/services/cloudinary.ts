@@ -6,7 +6,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 })
 
-export async function uploadPhoto(buffer: Buffer, folder = 'fingle/challenges'): Promise<string> {
+// Local dev sets CLOUDINARY_FOLDER so test uploads stay out of the production folder
+export async function uploadPhoto(buffer: Buffer, folder = process.env.CLOUDINARY_FOLDER ?? 'fingle/challenges'): Promise<string> {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       { folder, resource_type: 'image' },

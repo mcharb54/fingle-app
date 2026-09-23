@@ -20,6 +20,8 @@ model User {
   isAdmin       Boolean  @default(false)
   isBanned      Boolean  @default(false)
   tokenVersion  Int      @default(0)
+  // IANA zone from the client, used to decide which calendar day activity falls on (daily streaks)
+  timezone      String?
   createdAt     DateTime @default(now())
 
   sentChallenges             Challenge[]                @relation("Sent")
@@ -32,6 +34,18 @@ model User {
   emailVerificationTokens    EmailVerificationToken[]
   passwordResetTokens        PasswordResetToken[]
   pushSubscriptions          PushSubscription[]
+  badges                     UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badge    String
+  earnedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badge])
 }
 
 model PushSubscription {
@@ -139,6 +153,10 @@ model Guess {
   isCountCorrect    Boolean
   isFingersCorrect  Boolean  @default(false)
   points            Int      @default(0)
+  // Guessed within the quick-draw window; the bonus is already included in points
+  quickDraw         Boolean  @default(false)
+  // Stumper points the challenge's sender earned from this guess
+  senderPoints      Int      @default(0)
   createdAt         DateTime @default(now())
 
   challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)

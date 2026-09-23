@@ -5,8 +5,8 @@
   "description": "Challenge your friends to guess your fingers",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#F6F8FC",
+  "theme_color": "#F6F8FC",
   "icons": [
     {
       "src": "/icon-192.png",

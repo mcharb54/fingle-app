@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { friendsApi } from '../api'
 import type { FriendEntry, FriendRequest, PublicUser } from '../types'
 import { useSocket } from '../hooks/useSocket'
+import Avatar from '../components/ui/Avatar'
+import Icon from '../components/ui/Icon'
+import { useStats } from '../hooks/useStats'
 
 export default function FriendsPage() {
   const [friends, setFriends] = useState<FriendEntry[]>([])
@@ -11,6 +14,8 @@ export default function FriendsPage() {
   const [results, setResults] = useState<PublicUser[]>([])
   const [searching, setSearching] = useState(false)
   const [sentTo, setSentTo] = useState<Set<string>>(new Set())
+  const { headToHead } = useStats()
+  const rivalry = new Map(headToHead.map((h) => [h.friend.id, h]))
 
   useEffect(() => {
     reload()
@@ -57,135 +62,129 @@ export default function FriendsPage() {
   }
 
   return (
-    <div className="min-h-full bg-black">
-      <div className="sticky top-0 z-10 bg-black/80 backdrop-blur border-b border-white/10 safe-top px-4 py-3">
-        <h1 className="text-xl font-black text-white">Friends</h1>
+    <div className="quiet min-h-full">
+      <div className="sticky top-0 z-10 paper-bar safe-top px-4 pt-3 pb-2 border-b-2 border-dashed border-pen-faint">
+        <h1 className="page-title"><span className="hi">friends</span></h1>
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="px-5 py-5 space-y-7">
         {/* Search */}
-        <div>
-          <p className="text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wider">Add friends</p>
-          <div className="flex gap-2">
+        <section>
+          <p className="margin-label mb-2">Add friends</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              search()
+            }}
+            className="flex gap-2"
+          >
             <input
+              id="friend-search"
               type="text"
-              placeholder="Search by username…"
+              placeholder="Search by username"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && search()}
-              className="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-brand-400 text-sm"
+              className="field flex-1"
             />
-            <button
-              onClick={search}
-              disabled={searching || query.trim().length < 2}
-              className="bg-brand-500 hover:bg-brand-400 disabled:opacity-40 text-white font-semibold px-4 rounded-xl text-sm"
-            >
-              {searching ? '…' : 'Search'}
+            <button type="submit" disabled={searching || query.trim().length < 2} className="btn-pen px-4" aria-label="Search">
+              <Icon name="search" className="w-5 h-5" />
             </button>
-          </div>
+          </form>
           {results.length > 0 && (
-            <div className="mt-2 space-y-2">
+            <ul className="mt-2 divide-y divide-dashed divide-pen-faint">
               {results.map((user) => (
-                <div key={user.id} className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-3">
-                  <div className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center font-bold flex-shrink-0">
-                    {user.username[0].toUpperCase()}
-                  </div>
-                  <span className="flex-1 text-white font-semibold text-sm">{user.username}</span>
-                  <button
-                    onClick={() => sendRequest(user.id)}
-                    disabled={sentTo.has(user.id)}
-                    className="text-brand-400 disabled:text-gray-500 text-sm font-semibold"
-                  >
-                    {sentTo.has(user.id) ? 'Sent ✓' : 'Add +'}
-                  </button>
-                </div>
+                <PersonRow key={user.id} user={user}>
+                  <AddButton sent={sentTo.has(user.id)} onClick={() => sendRequest(user.id)} />
+                </PersonRow>
               ))}
-            </div>
+            </ul>
           )}
-        </div>
+        </section>
 
         {/* Pending requests */}
         {pending.length > 0 && (
-          <div>
-            <p className="text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wider">
-              Requests ({pending.length})
-            </p>
-            <div className="space-y-2">
+          <section>
+            <p className="margin-label mb-2">Requests ({pending.length})</p>
+            <ul className="sticky-note divide-y divide-dashed divide-pen-faint py-1">
               {pending.map(({ friendId, from }) => (
-                <div key={friendId} className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-3">
-                  <div className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center font-bold flex-shrink-0">
-                    {from.username[0].toUpperCase()}
-                  </div>
-                  <span className="flex-1 text-white font-semibold text-sm">{from.username}</span>
-                  <button
-                    onClick={() => accept(friendId)}
-                    className="bg-brand-500 hover:bg-brand-400 text-white text-sm font-semibold px-3 py-1.5 rounded-lg"
-                  >
-                    Accept
-                  </button>
-                </div>
+                <PersonRow key={friendId} user={from}>
+                  <button onClick={() => accept(friendId)} className="btn-pen px-4 py-2">Accept</button>
+                </PersonRow>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
 
         {/* Friends list */}
-        <div>
-          <p className="text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wider">
-            Friends ({friends.length})
-          </p>
+        <section>
+          <p className="margin-label mb-2">Friends ({friends.length})</p>
           {friends.length === 0 ? (
-            <p className="text-gray-600 text-sm">No friends yet — search above to add some.</p>
+            <p className="text-pen-soft">No friends yet. Search above to add some.</p>
           ) : (
-            <div className="space-y-2">
-              {friends.map(({ friendshipId, user }) => (
-                <div key={friendshipId} className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-3">
-                  <div className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center font-bold flex-shrink-0">
-                    {user.username[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-semibold text-sm">{user.username}</p>
-                    <p className="text-gray-500 text-xs">{user.totalScore} pts</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ul className="divide-y divide-dashed divide-pen-faint">
+              {friends.map(({ friendshipId, user }) => {
+                const h = rivalry.get(user.id)
+                const played = h && h.theirFingles + h.yourFingles > 0
+                return (
+                  <PersonRow
+                    key={friendshipId}
+                    user={user}
+                    sub={
+                      played
+                        ? [
+                            h.theirFingles > 0 && `You cracked ${h.youCracked} of ${h.theirFingles}`,
+                            h.yourFingles > 0 && `they cracked ${h.theyCracked} of ${h.yourFingles}`,
+                          ].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase())
+                        : `${user.totalScore} pts`
+                    }
+                  />
+                )
+              })}
+            </ul>
           )}
-        </div>
+        </section>
 
         {/* Other members */}
         {members.length > 0 && (
-          <div>
-            <p className="text-gray-400 text-sm font-semibold mb-2 uppercase tracking-wider">
-              Other Members
-            </p>
-            <div className="space-y-2">
+          <section>
+            <p className="margin-label mb-2">Other players</p>
+            <ul className="divide-y divide-dashed divide-pen-faint">
               {members.map((user) => (
-                <div key={user.id} className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-3">
-                  <div className="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center font-bold flex-shrink-0">
-                    {user.username[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-semibold text-sm">{user.username}</p>
-                    <p className="text-gray-500 text-xs">{user.totalScore} pts</p>
-                  </div>
+                <PersonRow key={user.id} user={user} sub={`${user.totalScore} pts`}>
                   {pending.some((p) => p.from.id === user.id) ? (
-                    <span className="text-gray-500 text-sm font-semibold">Pending</span>
+                    <span className="text-pen-soft text-sm font-bold">Wants to be friends</span>
                   ) : (
-                    <button
-                      onClick={() => sendRequest(user.id)}
-                      disabled={sentTo.has(user.id)}
-                      className="text-brand-400 disabled:text-gray-500 text-sm font-semibold"
-                    >
-                      {sentTo.has(user.id) ? 'Sent ✓' : 'Add +'}
-                    </button>
+                    <AddButton sent={sentTo.has(user.id)} onClick={() => sendRequest(user.id)} />
                   )}
-                </div>
+                </PersonRow>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
       </div>
     </div>
+  )
+}
+
+function PersonRow({ user, sub, children }: { user: PublicUser; sub?: string; children?: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3 py-2.5">
+      <Avatar name={user.username} />
+      <div className="flex-1 min-w-0">
+        <p className="font-bold truncate">{user.username}</p>
+        {sub && <p className="text-pen-soft text-sm">{sub}</p>}
+      </div>
+      {children}
+    </li>
+  )
+}
+
+function AddButton({ sent, onClick }: { sent: boolean; onClick: () => void }) {
+  return sent ? (
+    <span className="flex items-center gap-1 text-pen-soft text-sm font-bold">
+      <Icon name="check" className="w-4 h-4" /> Request sent
+    </span>
+  ) : (
+    <button onClick={onClick} className="btn-outline px-4 py-2">Add</button>
   )
 }

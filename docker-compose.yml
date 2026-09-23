@@ -1,0 +1,20 @@
+# Local development database. Start with `npm run db:up`.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: fingle-local-db
+    environment:
+      POSTGRES_USER: fingle
+      POSTGRES_PASSWORD: fingle
+      POSTGRES_DB: fingle
+    ports:
+      - '5433:5432'
+    volumes:
+      - fingle-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'fingle']
+      interval: 2s
+      retries: 15
+
+volumes:
+  fingle-db:

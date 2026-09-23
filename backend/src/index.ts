@@ -14,6 +14,7 @@ import challengeRoutes from './routes/challenges.js'
 import leaderboardRoutes from './routes/leaderboard.js'
 import adminRoutes from './routes/admin.js'
 import pushRoutes from './routes/push.js'
+import statsRoutes from './routes/stats.js'
 
 const app = express()
 const server = http.createServer(app)
@@ -76,6 +77,7 @@ app.use('/api/challenges', challengeRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/push', pushRoutes)
+app.use('/api/stats', statsRoutes)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 

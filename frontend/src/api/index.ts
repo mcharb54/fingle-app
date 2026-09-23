@@ -1,4 +1,4 @@
-import type { AdminUser, Challenge, Comment, FriendEntry, FriendRequest, PublicUser, Reaction, User, FingerName } from '../types'
+import type { AdminUser, Badge, Challenge, Comment, FriendEntry, FriendRequest, GuessProgress, HeadToHead, PlayerStats, PublicUser, Reaction, User, FingerName } from '../types'
 
 const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
 
@@ -12,6 +12,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...(options.headers as Record<string, string>),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  // Streak days follow the player's own calendar
+  try {
+    headers['X-Timezone'] = Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    /* older browsers: server falls back to UTC */
+  }
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json'
   }
@@ -83,7 +89,7 @@ export const friendsApi = {
 // Challenges
 export const challengesApi = {
   send: (formData: FormData) =>
-    request<{ challenges: Challenge[] }>('/challenges', { method: 'POST', body: formData }),
+    request<{ challenges: Challenge[]; newBadges: Badge[] }>('/challenges', { method: 'POST', body: formData }),
   getReceived: () => request<{ challenges: Challenge[] }>('/challenges/received'),
   getSent: () => request<{ challenges: Challenge[] }>('/challenges/sent'),
   checkCount: (challengeId: string, fingerCountGuess: number) =>
@@ -96,16 +102,25 @@ export const challengesApi = {
       guess: unknown
       result: {
         points: number
+        basePoints: number
+        quickDraw: boolean
         isCountCorrect: boolean
         isFingersCorrect: boolean
         correctCount: number
         correctFingers: FingerName[]
         photoUrl: string
       }
+      progress: GuessProgress
     }>(`/challenges/${challengeId}/guess`, {
       method: 'POST',
       body: JSON.stringify({ fingerCountGuess, whichFingersGuess }),
     }),
+}
+
+// Progress: levels, streaks, badges, rivalries
+export const statsApi = {
+  me: () =>
+    request<{ stats: PlayerStats; badges: Badge[]; newBadges: Badge[]; headToHead: HeadToHead[] }>('/stats/me'),
 }
 
 // Leaderboard

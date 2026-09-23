@@ -7,6 +7,8 @@ import { uploadPhoto } from '../services/cloudinary.js'
 import { emitToUser } from '../services/socket.js'
 import { sendPushToUser } from '../services/webpush.js'
 import { groupKey, inGroups } from '../services/fingleGroup.js'
+import { FINGER_NAMES, FingerName, isQuickDraw, QUICK_DRAW_BONUS, scoreGuess, stumperPoints } from '../services/scoring.js'
+import { awardBadges, computeStats, rememberTimezone } from '../services/stats.js'
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
@@ -36,31 +38,6 @@ export const upload = multer({
     cb(null, true)
   },
 })
-
-const FINGER_NAMES = ['thumb', 'index', 'middle', 'ring', 'pinky'] as const
-type FingerName = (typeof FINGER_NAMES)[number]
-
-function scoreGuess(
-  correctCount: number,
-  correctFingers: FingerName[],
-  countGuess: number,
-  fingersGuess: FingerName[],
-): { points: number; isCountCorrect: boolean; isFingersCorrect: boolean } {
-  const isCountCorrect = countGuess === correctCount
-
-  const correctSet = new Set(correctFingers)
-  const guessSet = new Set(fingersGuess)
-  const isFingersCorrect =
-    correctSet.size === guessSet.size &&
-    [...correctSet].every((f) => guessSet.has(f))
-
-  let points = 0
-  if (isCountCorrect && isFingersCorrect) points = 30
-  else if (isCountCorrect) points = 10
-  else if (isFingersCorrect && correctCount !== 5) points = 5
-
-  return { points, isCountCorrect, isFingersCorrect }
-}
 
 export async function createChallenge(req: AuthRequest, res: Response): Promise<void> {
   const file = (req as AuthRequest & { file?: Express.Multer.File }).file
@@ -177,7 +154,10 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
     }).catch(() => {/* non-fatal */})
   }
 
-  res.status(201).json({ challenges })
+  await rememberTimezone(req.userId!, req.header('x-timezone'))
+  const newBadges = await awardBadges(req.userId!)
+
+  res.status(201).json({ challenges, newBadges })
 }
 
 const commentUser = { select: { id: true, username: true, avatarUrl: true } }
@@ -214,7 +194,7 @@ export async function getReceivedChallenges(req: AuthRequest, res: Response): Pr
     where: { receiverId: req.userId! },
     include: {
       sender: { select: { id: true, username: true, avatarUrl: true } },
-      guess: { select: { points: true, isCountCorrect: true, isFingersCorrect: true, fingerCountGuess: true, whichFingersGuess: true, createdAt: true } },
+      guess: { select: { points: true, quickDraw: true, isCountCorrect: true, isFingersCorrect: true, fingerCountGuess: true, whichFingersGuess: true, createdAt: true } },
     },
   })
 
@@ -223,27 +203,42 @@ export async function getReceivedChallenges(req: AuthRequest, res: Response): Pr
     loadGroupThreads(groupIds),
     prisma.challenge.findMany({
       where: inGroups(groupIds),
-      select: { id: true, groupId: true, receiver: { select: { id: true, username: true, avatarUrl: true } } },
+      select: {
+        id: true,
+        groupId: true,
+        receiver: { select: { id: true, username: true, avatarUrl: true } },
+        guess: { select: { points: true, isCountCorrect: true } },
+      },
     }),
   ])
 
-  const recipientsByGroup = new Map<string, (typeof siblings)[number]['receiver'][]>()
+  const siblingsByGroup = new Map<string, typeof siblings>()
   for (const s of siblings) {
     const gid = groupKey(s)
-    recipientsByGroup.set(gid, [...(recipientsByGroup.get(gid) ?? []), s.receiver])
+    siblingsByGroup.set(gid, [...(siblingsByGroup.get(gid) ?? []), s])
   }
 
   const challenges = all.map((c) => {
     const gid = groupKey(c)
     // Hide the thread until this user has guessed, so it can't spoil the answer
     const thread = c.guess ? threads.get(gid) : undefined
+    const group = siblingsByGroup.get(gid) ?? []
+    const others = group.filter((s) => s.receiver.id !== req.userId)
     return {
       ...c,
       groupId: gid,
       comments: thread?.comments ?? [],
       reactions: thread?.reactions ?? [],
       // Other friends this fingle was also sent to
-      coRecipients: (recipientsByGroup.get(gid) ?? []).filter((r) => r.id !== req.userId),
+      coRecipients: others.map((s) => s.receiver),
+      // Counts only, so safe to show before guessing
+      groupProgress: {
+        total: group.length,
+        guessed: group.filter((s) => s.guess).length,
+        cracked: group.filter((s) => s.guess?.isCountCorrect).length,
+      },
+      // How everyone else did — only once this player has guessed too
+      coResults: c.guess ? others.map((s) => ({ user: s.receiver, points: s.guess?.points ?? null })) : [],
     }
   })
 
@@ -261,7 +256,7 @@ export async function getSentChallenges(req: AuthRequest, res: Response): Promis
     orderBy: { createdAt: 'desc' },
     include: {
       receiver: { select: { id: true, username: true, avatarUrl: true } },
-      guess: { select: { points: true, isCountCorrect: true, isFingersCorrect: true, createdAt: true } },
+      guess: { select: { points: true, quickDraw: true, senderPoints: true, isCountCorrect: true, isFingersCorrect: true, createdAt: true } },
     },
   })
 
@@ -331,12 +326,17 @@ export async function submitGuess(req: AuthRequest, res: Response): Promise<void
 
   const fingersGuess = Array.isArray(whichFingersGuess) ? whichFingersGuess : []
 
-  const { points, isCountCorrect, isFingersCorrect } = scoreGuess(
+  const { points: basePoints, isCountCorrect, isFingersCorrect } = scoreGuess(
     challenge.fingerCount,
     challenge.whichFingers as FingerName[],
     fingerCountGuess,
     fingersGuess,
   )
+  const quickDraw = isQuickDraw(basePoints, challenge.createdAt, new Date())
+  const points = basePoints + (quickDraw ? QUICK_DRAW_BONUS : 0)
+  const senderPoints = stumperPoints(basePoints)
+
+  await rememberTimezone(req.userId!, req.header('x-timezone'))
 
   const [guess] = await prisma.$transaction([
     prisma.guess.create({
@@ -348,6 +348,8 @@ export async function submitGuess(req: AuthRequest, res: Response): Promise<void
         isCountCorrect,
         isFingersCorrect,
         points,
+        quickDraw,
+        senderPoints,
       },
     }),
     prisma.challenge.update({ where: { id }, data: { seen: true } }),
@@ -355,25 +357,59 @@ export async function submitGuess(req: AuthRequest, res: Response): Promise<void
       where: { id: req.userId! },
       data: { totalScore: { increment: points } },
     }),
+    prisma.user.update({
+      where: { id: challenge.senderId },
+      data: { totalScore: { increment: senderPoints } },
+    }),
   ])
+
+  const [stats, senderBadges, guesser] = await Promise.all([
+    computeStats(req.userId!),
+    awardBadges(challenge.senderId),
+    prisma.user.findUnique({ where: { id: req.userId! }, select: { username: true } }),
+  ])
+  const newBadges = await awardBadges(req.userId!, stats)
 
   emitToUser(challenge.senderId, 'challenge_guessed', {
     challengeId: id,
     by: { id: req.userId },
     points,
+    senderPoints,
     isCountCorrect,
     isFingersCorrect,
+    newBadges: senderBadges,
   })
+
+  // The sender hears how their fingle landed — the payoff for making a hard one
+  const name = guesser?.username ?? 'Someone'
+  sendPushToUser(challenge.senderId, {
+    title: basePoints === 30 ? `${name} nailed your fingle` : basePoints === 0 ? `You stumped ${name}!` : `${name} half cracked your fingle`,
+    body: senderPoints > 0 ? `+${senderPoints} stumper points for you` : `They scored +${points}`,
+    url: `/?tab=sent&highlight=${id}`,
+    tag: `fingle-${groupKey(challenge)}`,
+  }).catch(() => {/* non-fatal */})
 
   res.json({
     guess,
     result: {
       points,
+      basePoints,
+      quickDraw,
       isCountCorrect,
       isFingersCorrect,
       correctCount: challenge.fingerCount,
       correctFingers: challenge.whichFingers,
       photoUrl: challenge.photoUrl,
+    },
+    progress: {
+      xpBefore: stats.xp - points,
+      xp: stats.xp,
+      level: stats.level,
+      levelStart: stats.levelStart,
+      nextLevelAt: stats.nextLevelAt,
+      hotStreak: stats.hotStreak,
+      daily: stats.daily,
+      newBadges,
     },
   })
 }
