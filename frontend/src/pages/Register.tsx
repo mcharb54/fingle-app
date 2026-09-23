@@ -73,6 +73,8 @@ export default function Register() {
             required
             minLength={2}
             maxLength={20}
+            pattern="[A-Za-z0-9._\-]{2,20}"
+            title="2–20 letters, numbers, dots, dashes or underscores"
             className="field"
           />
           <input

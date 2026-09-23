@@ -34,11 +34,17 @@ function sanitizeUser(user: {
   }
 }
 
+const USERNAME_RE = /^[A-Za-z0-9._-]{2,20}$/
+
 export async function register(req: Request, res: Response): Promise<void> {
   const { username, email, password } = req.body as { username?: string; email?: string; password?: string }
 
   if (!username || !email || !password) {
     res.status(400).json({ error: 'username, email and password are required' })
+    return
+  }
+  if (!USERNAME_RE.test(username)) {
+    res.status(400).json({ error: 'Username must be 2–20 letters, numbers, dots, dashes or underscores' })
     return
   }
   if (password.length < 8) {
@@ -285,8 +291,8 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
 export async function changeUsername(req: AuthRequest, res: Response): Promise<void> {
   const { username } = req.body as { username?: string }
 
-  if (!username || username.trim().length < 2 || username.trim().length > 30) {
-    res.status(400).json({ error: 'Username must be 2–30 characters' })
+  if (!username || !USERNAME_RE.test(username.trim())) {
+    res.status(400).json({ error: 'Username must be 2–20 letters, numbers, dots, dashes or underscores' })
     return
   }
 
