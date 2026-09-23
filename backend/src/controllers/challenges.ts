@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { Response } from 'express'
 import multer from 'multer'
 import { prisma } from '../lib/prisma.js'
@@ -5,6 +6,7 @@ import { AuthRequest } from '../middleware/auth.js'
 import { uploadPhoto } from '../services/cloudinary.js'
 import { emitToUser } from '../services/socket.js'
 import { sendPushToUser } from '../services/webpush.js'
+import { groupKey, inGroups } from '../services/fingleGroup.js'
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
@@ -115,6 +117,7 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
     res.status(400).json({ error: 'receiverIds must be a non-empty array' })
     return
   }
+  ids = [...new Set(ids)]
 
   // Verify friendship for all recipients
   for (const receiverId of ids) {
@@ -141,12 +144,16 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
     select: { id: true, username: true, avatarUrl: true },
   })
 
+  // All recipients of this send share one comment/reaction thread
+  const groupId = randomUUID()
+
   const challenges = await Promise.all(
     ids.map((receiverId) =>
       prisma.challenge.create({
         data: {
           senderId: req.userId!,
           receiverId,
+          groupId,
           photoUrl,
           fingerCount: count,
           whichFingers: fingers,
@@ -166,50 +173,106 @@ export async function createChallenge(req: AuthRequest, res: Response): Promise<
     sendPushToUser(challenge.receiverId, {
       title: `${sender?.username ?? 'Someone'} fingled you!`,
       body: 'Tap to guess which fingers',
-      url: '/',
+      url: `/?tab=inbox&highlight=${challenge.id}`,
     }).catch(() => {/* non-fatal */})
   }
 
   res.status(201).json({ challenges })
 }
 
+const commentUser = { select: { id: true, username: true, avatarUrl: true } }
+const reactionUser = { select: { id: true, username: true } }
+const challengeGroup = { select: { id: true, groupId: true } }
+
+// Comments and reactions for whole groups, keyed by groupId
+async function loadGroupThreads(groupIds: string[]) {
+  const [comments, reactions] = await Promise.all([
+    prisma.comment.findMany({
+      where: { challenge: inGroups(groupIds) },
+      include: { user: commentUser, challenge: challengeGroup },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.reaction.findMany({
+      where: { challenge: inGroups(groupIds) },
+      include: { user: reactionUser, challenge: challengeGroup },
+      orderBy: { createdAt: 'asc' },
+    }),
+  ])
+
+  const threads = new Map<string, { comments: Omit<(typeof comments)[number], 'challenge'>[]; reactions: Omit<(typeof reactions)[number], 'challenge'>[] }>()
+  const thread = (gid: string) => {
+    if (!threads.has(gid)) threads.set(gid, { comments: [], reactions: [] })
+    return threads.get(gid)!
+  }
+  for (const { challenge, ...comment } of comments) thread(groupKey(challenge)).comments.push(comment)
+  for (const { challenge, ...reaction } of reactions) thread(groupKey(challenge)).reactions.push(reaction)
+  return threads
+}
+
 export async function getReceivedChallenges(req: AuthRequest, res: Response): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const all: any[] = await (prisma.challenge.findMany as any)({
+  const all = await prisma.challenge.findMany({
     where: { receiverId: req.userId! },
     include: {
       sender: { select: { id: true, username: true, avatarUrl: true } },
       guess: { select: { points: true, isCountCorrect: true, isFingersCorrect: true, fingerCountGuess: true, whichFingersGuess: true, createdAt: true } },
-      reactions: { include: { user: { select: { id: true, username: true } } } },
-      comments: {
-        include: { user: { select: { id: true, username: true, avatarUrl: true } } },
-        orderBy: { createdAt: 'asc' },
-      },
     },
   })
 
+  const groupIds = [...new Set(all.map(groupKey))]
+  const [threads, siblings] = await Promise.all([
+    loadGroupThreads(groupIds),
+    prisma.challenge.findMany({
+      where: inGroups(groupIds),
+      select: { id: true, groupId: true, receiver: { select: { id: true, username: true, avatarUrl: true } } },
+    }),
+  ])
+
+  const recipientsByGroup = new Map<string, (typeof siblings)[number]['receiver'][]>()
+  for (const s of siblings) {
+    const gid = groupKey(s)
+    recipientsByGroup.set(gid, [...(recipientsByGroup.get(gid) ?? []), s.receiver])
+  }
+
+  const challenges = all.map((c) => {
+    const gid = groupKey(c)
+    // Hide the thread until this user has guessed, so it can't spoil the answer
+    const thread = c.guess ? threads.get(gid) : undefined
+    return {
+      ...c,
+      groupId: gid,
+      comments: thread?.comments ?? [],
+      reactions: thread?.reactions ?? [],
+      // Other friends this fingle was also sent to
+      coRecipients: (recipientsByGroup.get(gid) ?? []).filter((r) => r.id !== req.userId),
+    }
+  })
+
   // Unguessed first (newest first within each group), then guessed
-  const unguessed = all.filter((c: any) => !c.guess).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  const guessed = all.filter((c: any) => c.guess).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const newestFirst = (a: { createdAt: Date }, b: { createdAt: Date }) => b.createdAt.getTime() - a.createdAt.getTime()
+  const unguessed = challenges.filter((c) => !c.guess).sort(newestFirst)
+  const guessed = challenges.filter((c) => c.guess).sort(newestFirst)
 
   res.json({ challenges: [...unguessed, ...guessed] })
 }
 
 export async function getSentChallenges(req: AuthRequest, res: Response): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const challenges: any[] = await (prisma.challenge.findMany as any)({
+  const all = await prisma.challenge.findMany({
     where: { senderId: req.userId! },
-    orderBy: { createdAt: 'desc' as const },
+    orderBy: { createdAt: 'desc' },
     include: {
       receiver: { select: { id: true, username: true, avatarUrl: true } },
       guess: { select: { points: true, isCountCorrect: true, isFingersCorrect: true, createdAt: true } },
-      reactions: { include: { user: { select: { id: true, username: true } } } },
-      comments: {
-        include: { user: { select: { id: true, username: true, avatarUrl: true } } },
-        orderBy: { createdAt: 'asc' as const },
-      },
     },
   })
+
+  const threads = await loadGroupThreads([...new Set(all.map(groupKey))])
+
+  const challenges = all.map((c) => {
+    const gid = groupKey(c)
+    const thread = threads.get(gid)
+    return { ...c, groupId: gid, comments: thread?.comments ?? [], reactions: thread?.reactions ?? [] }
+  })
+
   res.json({ challenges })
 }
 

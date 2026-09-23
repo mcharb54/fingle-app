@@ -88,6 +88,8 @@ model Challenge {
   id           String    @id @default(cuid())
   senderId     String
   receiverId   String
+  // Shared by every challenge created in one send, so recipients share one comment/reaction thread
+  groupId      String?
   photoUrl     String
   fingerCount  Int
   whichFingers String[]
@@ -100,6 +102,8 @@ model Challenge {
   guess     Guess?
   reactions Reaction[]
   comments  Comment[]
+
+  @@index([groupId])
 }
 
 model Reaction {

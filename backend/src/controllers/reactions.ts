@@ -1,10 +1,23 @@
 import { Response } from 'express'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
-import { emitToUser } from '../services/socket.js'
-import { sendPushToUser } from '../services/webpush.js'
+import { emitToGroup, inGroups, loadGroup, participantAccess, pushToGroup } from '../services/fingleGroup.js'
 
 const ALLOWED_EMOJIS = ['👍', '👎', '🫶', '👌', '🤙', '🖕', '✌️', '🙌', '🤟', '🤘', '🙏']
+
+// Toggling the same emoji off and on shouldn't re-notify everyone each time
+const PUSH_COOLDOWN_MS = 60_000
+const recentPushes = new Map<string, number>()
+
+function shouldPush(key: string): boolean {
+  const now = Date.now()
+  const last = recentPushes.get(key)
+  if (last && now - last < PUSH_COOLDOWN_MS) return false
+  if (recentPushes.size > 1000) recentPushes.clear()
+  recentPushes.set(key, now)
+  return true
+}
 
 export async function toggleReaction(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params
@@ -15,68 +28,73 @@ export async function toggleReaction(req: AuthRequest, res: Response): Promise<v
     return
   }
 
-  const challenge = await prisma.challenge.findUnique({ where: { id } })
-  if (!challenge || (challenge.senderId !== req.userId && challenge.receiverId !== req.userId)) {
+  const group = await loadGroup(id)
+  if (!group) {
     res.status(404).json({ error: 'Challenge not found' })
     return
   }
 
-  // Receiver must have guessed before reacting
-  if (challenge.receiverId === req.userId) {
-    const guess = await prisma.guess.findUnique({ where: { challengeId: id } })
-    if (!guess) {
-      res.status(403).json({ error: 'You must guess before reacting' })
-      return
-    }
+  const access = participantAccess(group, req.userId!, 'reacting')
+  if (!access.ok) {
+    res.status(access.status).json({ error: access.error })
+    return
   }
-
-  const existing = await prisma.reaction.findUnique({
-    where: { challengeId_userId_emoji: { challengeId: id, userId: req.userId!, emoji } },
-  })
 
   const reactor = await prisma.user.findUnique({
     where: { id: req.userId! },
     select: { id: true, username: true },
   })
 
-  const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
+  // A reaction anywhere in the group counts — the thread is shared
+  const mine = { userId: req.userId!, emoji, challenge: inGroups([group.groupId]) }
+  const existing = await prisma.reaction.findFirst({ where: mine })
 
   if (existing) {
-    await prisma.reaction.delete({ where: { id: existing.id } })
-    const payload = {
+    await prisma.reaction.deleteMany({ where: mine })
+    emitToGroup(group, 'reaction_updated', {
       challengeId: id,
       emoji,
-      action: 'removed' as const,
+      action: 'removed',
       reactionId: existing.id,
       byUserId: req.userId,
       byUsername: reactor?.username,
-    }
-    emitToUser(otherId, 'reaction_updated', payload)
-    emitToUser(req.userId!, 'reaction_updated', payload)
+    })
     res.json({ action: 'removed', emoji })
-  } else {
-    const reaction = await prisma.reaction.create({
-      data: { challengeId: id, userId: req.userId!, emoji },
+    return
+  }
+
+  let reaction
+  try {
+    reaction = await prisma.reaction.create({
+      data: { challengeId: access.challengeId, userId: req.userId!, emoji },
       include: { user: { select: { id: true, username: true } } },
     })
-    const payload = {
-      challengeId: id,
-      emoji,
-      action: 'added' as const,
-      reactionId: reaction.id,
-      byUserId: req.userId,
-      byUsername: reactor?.username,
+  } catch (err) {
+    // A concurrent double-tap already added it
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      res.json({ action: 'added', emoji })
+      return
     }
-    emitToUser(otherId, 'reaction_updated', payload)
-    emitToUser(req.userId!, 'reaction_updated', payload)
+    console.error('[reactions] create failed:', err)
+    res.status(500).json({ error: 'Could not add reaction' })
+    return
+  }
 
-    const tab = challenge.senderId === req.userId ? 'inbox' : 'sent'
-    sendPushToUser(otherId, {
+  emitToGroup(group, 'reaction_updated', {
+    challengeId: id,
+    emoji,
+    action: 'added',
+    reactionId: reaction.id,
+    byUserId: req.userId,
+    byUsername: reactor?.username,
+  })
+
+  if (shouldPush(`${req.userId}:${group.groupId}:${emoji}`)) {
+    pushToGroup(group, req.userId!, {
       title: `${reactor?.username ?? 'Someone'} reacted ${emoji}`,
       body: 'Tap to see it',
-      url: `/?tab=${tab}&highlight=${id}`,
-    }).catch(() => {/* non-fatal */})
-
-    res.status(201).json({ action: 'added', reaction })
+    })
   }
+
+  res.status(201).json({ action: 'added', reaction })
 }

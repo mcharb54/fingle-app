@@ -1,8 +1,7 @@
 import { Response } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
-import { emitToUser } from '../services/socket.js'
-import { sendPushToUser } from '../services/webpush.js'
+import { emitToGroup, groupKey, loadGroup, participantAccess, pushToGroup } from '../services/fingleGroup.js'
 
 export async function addComment(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params
@@ -18,38 +17,30 @@ export async function addComment(req: AuthRequest, res: Response): Promise<void>
     return
   }
 
-  const challenge = await prisma.challenge.findUnique({ where: { id } })
-  if (!challenge || (challenge.senderId !== req.userId && challenge.receiverId !== req.userId)) {
+  const group = await loadGroup(id)
+  if (!group) {
     res.status(404).json({ error: 'Challenge not found' })
     return
   }
 
-  // Receiver must have guessed before commenting
-  if (challenge.receiverId === req.userId) {
-    const guess = await prisma.guess.findUnique({ where: { challengeId: id } })
-    if (!guess) {
-      res.status(403).json({ error: 'You must guess before commenting' })
-      return
-    }
+  const access = participantAccess(group, req.userId!, 'commenting')
+  if (!access.ok) {
+    res.status(access.status).json({ error: access.error })
+    return
   }
 
   const comment = await prisma.comment.create({
-    data: { challengeId: id, userId: req.userId!, text: text.trim() },
+    data: { challengeId: access.challengeId, userId: req.userId!, text: text.trim() },
     include: { user: { select: { id: true, username: true, avatarUrl: true } } },
   })
 
-  const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
-  const payload = { challengeId: id, action: 'added', comment }
-  emitToUser(otherId, 'comment_updated', payload)
-  emitToUser(req.userId!, 'comment_updated', payload)
+  emitToGroup(group, 'comment_updated', { challengeId: id, action: 'added', comment })
 
   const preview = comment.text.length > 80 ? comment.text.slice(0, 80) + '…' : comment.text
-  const tab = challenge.senderId === req.userId ? 'inbox' : 'sent'
-  sendPushToUser(otherId, {
+  pushToGroup(group, req.userId!, {
     title: `${comment.user.username} commented`,
     body: preview,
-    url: `/?tab=${tab}&highlight=${id}`,
-  }).catch(() => {/* non-fatal */})
+  })
 
   res.status(201).json({ comment })
 }
@@ -57,9 +48,16 @@ export async function addComment(req: AuthRequest, res: Response): Promise<void>
 export async function deleteComment(req: AuthRequest, res: Response): Promise<void> {
   const { id, commentId } = req.params
 
-  const comment = await prisma.comment.findUnique({ where: { id: commentId } })
+  const [comment, group] = await Promise.all([
+    prisma.comment.findUnique({
+      where: { id: commentId },
+      include: { challenge: { select: { id: true, groupId: true } } },
+    }),
+    loadGroup(id),
+  ])
 
-  if (!comment || comment.challengeId !== id) {
+  // The comment may live on any challenge row in the group, not just the one in the URL
+  if (!comment || !group || groupKey(comment.challenge) !== group.groupId) {
     res.status(404).json({ error: 'Comment not found' })
     return
   }
@@ -69,15 +67,9 @@ export async function deleteComment(req: AuthRequest, res: Response): Promise<vo
     return
   }
 
-  const challenge = await prisma.challenge.findUnique({ where: { id } })
   await prisma.comment.delete({ where: { id: commentId } })
 
-  if (challenge) {
-    const otherId = challenge.senderId === req.userId ? challenge.receiverId : challenge.senderId
-    const payload = { challengeId: id, action: 'deleted', commentId }
-    emitToUser(otherId, 'comment_updated', payload)
-    emitToUser(req.userId!, 'comment_updated', payload)
-  }
+  emitToGroup(group, 'comment_updated', { challengeId: id, action: 'deleted', commentId })
 
   res.json({ message: 'Comment deleted' })
 }

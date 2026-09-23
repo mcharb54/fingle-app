@@ -14,34 +14,23 @@ interface SentGroup {
   answeredCount: number
 }
 
-function groupSentByPhoto(challenges: Challenge[]): SentGroup[] {
+// Collapse one multi-recipient send into a single card. Every row in a group
+// already carries the full shared thread, so the first row's comments/reactions are used as-is.
+function groupSent(challenges: Challenge[]): SentGroup[] {
   const map = new Map<string, SentGroup>()
   for (const c of challenges) {
-    if (!map.has(c.photoUrl)) {
-      map.set(c.photoUrl, {
-        main: { ...c },
+    const g = map.get(c.groupId)
+    if (!g) {
+      map.set(c.groupId, {
+        main: c,
         challengeIds: [c.id],
         recipients: c.receiver ? [c.receiver] : [],
         answeredCount: c.guess ? 1 : 0,
       })
     } else {
-      const g = map.get(c.photoUrl)!
       g.challengeIds.push(c.id)
       if (c.receiver) g.recipients.push(c.receiver)
       if (c.guess) g.answeredCount++
-      // Merge comments and reactions from all challenges in the group
-      const existingCommentIds = new Set((g.main.comments ?? []).map(cm => cm.id))
-      for (const cm of c.comments ?? []) {
-        if (!existingCommentIds.has(cm.id)) {
-          g.main.comments = [...(g.main.comments ?? []), cm]
-        }
-      }
-      const existingReactionIds = new Set((g.main.reactions ?? []).map(r => r.id))
-      for (const r of c.reactions ?? []) {
-        if (!existingReactionIds.has(r.id)) {
-          g.main.reactions = [...(g.main.reactions ?? []), r]
-        }
-      }
     }
   }
   return [...map.values()]
@@ -109,6 +98,10 @@ export default function Feed() {
   }, [loading, highlightId, setSearchParams])
 
   useSocket({
+    // Events emitted while disconnected are lost, so resync after (re)connecting
+    connect: () => {
+      if (!loading) load()
+    },
     new_challenge: () => {
       if (tab === 'inbox') load()
     },
@@ -117,7 +110,7 @@ export default function Feed() {
     },
     reaction_updated: (data: unknown) => {
       const evt = data as {
-        challengeId: string
+        groupId: string
         emoji: string
         action: 'added' | 'removed'
         reactionId: string
@@ -127,7 +120,8 @@ export default function Feed() {
       // Apply directly to local state for immediate feedback
       setChallenges((prev) =>
         prev.map((c) => {
-          if (c.id !== evt.challengeId) return c
+          // The thread is shared by every challenge in the group
+          if (c.groupId !== evt.groupId) return c
           const reactions = c.reactions ?? []
           if (evt.action === 'added') {
             // Avoid duplicates (e.g. from optimistic update)
@@ -160,7 +154,7 @@ export default function Feed() {
     },
     comment_updated: (data: unknown) => {
       const evt = data as {
-        challengeId: string
+        groupId: string
         action: 'added' | 'deleted'
         comment?: Comment
         commentId?: string
@@ -168,7 +162,8 @@ export default function Feed() {
       // Apply directly to local state for immediate feedback
       setChallenges((prev) =>
         prev.map((c) => {
-          if (c.id !== evt.challengeId) return c
+          // The thread is shared by every challenge in the group
+          if (c.groupId !== evt.groupId) return c
           const comments = c.comments ?? []
           if (evt.action === 'added' && evt.comment) {
             // Avoid duplicates (e.g. the commenter already appended via the API response)
@@ -185,7 +180,7 @@ export default function Feed() {
 
   const unread = challenges.filter((c) => !c.guess && !c.seen).length
 
-  const sentGroups = tab === 'sent' ? groupSentByPhoto(challenges) : []
+  const sentGroups = tab === 'sent' ? groupSent(challenges) : []
   const totalItems = tab === 'sent' ? sentGroups.length : challenges.length
 
   // Ensure the highlighted card is within the visible window
@@ -251,7 +246,7 @@ export default function Feed() {
               <ChallengeCard
                 challenge={main}
                 isSent
-                defaultMinimized={minimizePhotos}
+                defaultMinimized={minimizePhotos && !(highlightId && challengeIds.includes(highlightId))}
                 recipients={recipients}
                 answeredCount={answeredCount}
               />
@@ -260,7 +255,7 @@ export default function Feed() {
         ) : (
           challenges.slice(0, effectiveVisible).map((c) => (
             <div key={c.id} id={`challenge-${c.id}`}>
-              <ChallengeCard challenge={c} defaultMinimized={minimizePhotos} />
+              <ChallengeCard challenge={c} defaultMinimized={minimizePhotos && c.id !== highlightId} />
             </div>
           ))
         )}
