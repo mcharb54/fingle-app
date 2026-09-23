@@ -17,12 +17,17 @@ import NotificationPrompt from './components/NotificationPrompt'
 import IOSInstallPrompt from './components/IOSInstallPrompt'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useReloadOnResume } from './hooks/useReloadOnResume'
+import { PenDefs } from './components/ui/HandGlyph'
+
+function Loading() {
+  return <div className="flex h-screen items-center justify-center font-marker text-2xl text-pen-soft">hang on…</div>
+}
 
 function ProtectedLayout() {
   const { user, loading } = useAuth()
   const { isSupported, isIOSSafariBrowser, permission, isSubscribed, enableNotifications } = usePushNotifications()
   useReloadOnResume()
-  if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading…</div>
+  if (loading) return <Loading />
   if (!user) return <Navigate to="/login" replace />
 
   const showPrompt = isSupported && !isSubscribed && permission === 'default'
@@ -48,7 +53,7 @@ function ProtectedLayout() {
 
 function AdminLayout() {
   const { user, loading } = useAuth()
-  if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading…</div>
+  if (loading) return <Loading />
   if (!user) return <Navigate to="/login" replace />
   if (!user.isAdmin) return <Navigate to="/" replace />
   return <AdminPage />
@@ -57,6 +62,7 @@ function AdminLayout() {
 export default function App() {
   return (
     <AuthProvider>
+      <PenDefs />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />

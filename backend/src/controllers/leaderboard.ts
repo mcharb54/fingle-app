@@ -56,17 +56,29 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
     take: 50,
   })
 
+  // Stumper points belong to the sender of the guessed challenge
+  const senderSums = await prisma.$queryRaw<{ userId: string; points: bigint }[]>`
+    SELECT c."senderId" AS "userId", SUM(g."senderPoints") AS points
+    FROM "Guess" g JOIN "Challenge" c ON c.id = g."challengeId"
+    WHERE g."createdAt" >= ${startDate} AND g."senderPoints" > 0
+    GROUP BY c."senderId"`
+
+  const scoreMap = new Map(results.map((r) => [r.userId, r._sum.points ?? 0]))
+  for (const { userId, points } of senderSums) {
+    if (friendIds && !friendIds.includes(userId)) continue
+    scoreMap.set(userId, (scoreMap.get(userId) ?? 0) + Number(points))
+  }
+
   // For friends scope, fetch all friends+self so everyone appears even with 0 pts
-  const allUserIds = friendIds ?? results.map((r) => r.userId)
+  const allUserIds = friendIds ?? [...scoreMap.keys()]
   const users = await prisma.user.findMany({
     where: { id: { in: allUserIds } },
     select: { id: true, username: true, avatarUrl: true },
   })
-
-  const scoreMap = new Map(results.map((r) => [r.userId, r._sum.points ?? 0]))
   const leaderboard = users
     .map((u) => ({ id: u.id, username: u.username, avatarUrl: u.avatarUrl, totalScore: scoreMap.get(u.id) ?? 0 }))
     .sort((a, b) => b.totalScore - a.totalScore)
+    .slice(0, 50)
 
   res.json({ leaderboard })
 }

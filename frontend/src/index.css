@@ -8,16 +8,162 @@
     overscroll-behavior: none;
   }
   body {
-    @apply bg-black text-white font-sans;
+    @apply bg-paper text-pen font-sans;
+    font-size: 17px;
     -webkit-tap-highlight-color: transparent;
+    /* Graph paper */
+    background-image:
+      repeating-linear-gradient(0deg, transparent 0 23px, theme('colors.grid') 23px 24px),
+      repeating-linear-gradient(90deg, transparent 0 23px, theme('colors.grid') 23px 24px);
+  }
+  button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 2px dashed theme('colors.redpen');
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  }
+}
+
+@layer components {
+  /* Hand-drawn box: uneven corners read as a pen outline */
+  .sketch {
+    @apply bg-white border-2 border-pen;
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+  .sketch-alt {
+    @apply bg-white border-2 border-pen;
+    border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
+  }
+
+  /* Highlighter swipe behind a word */
+  .hi {
+    background: linear-gradient(104deg, transparent 2%, theme('colors.hi') 4% 94%, transparent 97%) 0 62% / 100% 58% no-repeat;
+    padding-inline: 0.15em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  /* Taped-in photo */
+  .polaroid {
+    @apply relative bg-white p-2 pb-3;
+    box-shadow: 0 8px 18px -10px rgba(31, 59, 166, 0.45);
+  }
+  .tape {
+    @apply absolute left-1/2 -top-2.5 h-5 w-16 bg-tape z-10;
+    transform: translateX(-50%) rotate(-3deg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-marker text-lg leading-none px-5 py-3 transition-transform active:scale-95 disabled:opacity-40 disabled:active:scale-100;
+  }
+  .btn-pen {
+    @apply btn bg-pen text-white;
+    border-radius: 14px 5px 16px 6px;
+    box-shadow: 3px 3px 0 theme('colors.hi');
+  }
+  .btn-outline {
+    @apply btn sketch text-pen;
+  }
+  .btn-red {
+    @apply btn text-redpen border-2 border-redpen bg-white;
+    border-radius: 5px 16px 6px 14px;
+  }
+  .link {
+    @apply text-pen underline decoration-redpen decoration-2 underline-offset-4;
+  }
+
+  /* Notebook fields: write on the line */
+  .field {
+    @apply w-full bg-white/80 border-2 border-pen-faint px-4 py-3 text-pen text-lg placeholder-pen-faint outline-none transition-colors focus:border-pen;
+    border-radius: 12px 4px 14px 5px;
+  }
+  .field:focus { box-shadow: 3px 3px 0 theme('colors.hi'); }
+
+  /* Red-pen note for errors, pen note for success */
+  .note-error {
+    @apply border-2 border-dashed border-redpen text-redpen bg-white/80 px-3 py-2 text-base;
+    border-radius: 10px 4px 12px 4px;
+  }
+  .note-ok {
+    @apply border-2 border-dashed border-pen text-pen bg-white/80 px-3 py-2 text-base;
+    border-radius: 4px 12px 4px 10px;
+  }
+
+  /* Section label written in the margin */
+  .margin-label {
+    @apply font-marker text-base text-pen-soft;
+  }
+
+  /* Sticky note */
+  .sticky-note {
+    @apply relative bg-[#FFF7B0] text-pen px-4 py-3;
+    box-shadow: 0 6px 14px -8px rgba(31, 59, 166, 0.4);
+    transform: rotate(-0.6deg);
+  }
+
+  .page-title {
+    @apply font-marker text-3xl leading-none;
+  }
+
+  /*
+   * Quiet mode — account, settings and friends screens. Same paper and inks,
+   * but legible type, straight boxes and no tilt. Only page titles keep the marker.
+   */
+  .quiet {
+    @apply font-plain text-base;
+  }
+  .quiet .sketch,
+  .quiet .sketch-alt {
+    border-radius: 10px;
+  }
+  .quiet .btn {
+    @apply font-plain font-bold text-base;
+  }
+  .quiet .btn-pen,
+  .quiet .btn-red {
+    border-radius: 10px;
+  }
+  .quiet .btn-pen {
+    box-shadow: none;
+  }
+  .quiet .field {
+    @apply font-plain text-base;
+    border-radius: 8px;
+  }
+  .quiet .field:focus {
+    box-shadow: 0 0 0 3px theme('colors.hi');
+  }
+  .quiet .note-error,
+  .quiet .note-ok {
+    @apply text-sm border-solid;
+    border-radius: 8px;
+  }
+  .quiet .margin-label {
+    @apply font-plain font-bold text-xs uppercase tracking-wider;
+  }
+  .quiet .sticky-note {
+    transform: none;
   }
 }
 
 @layer utilities {
+  /* Graph paper for sheets and panels that sit above the page */
+  .graph {
+    background-color: theme('colors.paper');
+    background-image:
+      repeating-linear-gradient(0deg, transparent 0 23px, theme('colors.grid') 23px 24px),
+      repeating-linear-gradient(90deg, transparent 0 23px, theme('colors.grid') 23px 24px);
+  }
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
   .safe-top {
     padding-top: env(safe-area-inset-top);
+  }
+  .paper-bar {
+    @apply bg-paper/90 backdrop-blur-[2px];
   }
 }

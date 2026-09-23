@@ -1,4 +1,5 @@
 import type { FingerName } from '../types'
+import HandGlyph from './ui/HandGlyph'
 
 interface Props {
   count: number
@@ -10,68 +11,54 @@ interface Props {
   disabled?: boolean
 }
 
-const FINGERS: { name: FingerName; label: string; emoji: string }[] = [
-  { name: 'thumb', label: 'Thumb', emoji: '👍' },
-  { name: 'index', label: 'Index', emoji: '☝️' },
-  { name: 'middle', label: 'Middle', emoji: '🖕' },
-  { name: 'ring', label: 'Ring', emoji: '💍' },
-  { name: 'pinky', label: 'Pinky', emoji: '🤙' },
+const FINGERS: { name: FingerName; label: string }[] = [
+  { name: 'thumb', label: 'thumb' },
+  { name: 'index', label: 'index' },
+  { name: 'middle', label: 'middle' },
+  { name: 'ring', label: 'ring' },
+  { name: 'pinky', label: 'pinky' },
 ]
 
 export default function FingerPicker({ count, freeMode = false, actualCount, selected, onToggle, onSubmit, disabled }: Props) {
-  const canSubmit = freeMode
-    ? actualCount !== undefined ? selected.length === actualCount : selected.length >= 1
-    : selected.length === count
+  const target = freeMode ? actualCount : count
+  const canSubmit = target !== undefined ? selected.length === target : selected.length >= 1
 
   return (
     <div className="w-full animate-slide-up">
-      <p className="text-center text-white font-bold text-lg mb-1">
+      <p className="text-center font-marker text-2xl leading-tight">
         {freeMode
           ? actualCount !== undefined
-            ? `Wrong count — there were actually ${actualCount} fingers!`
-            : 'Wrong count — still guess the fingers!'
-          : `Correct! Now which ${count === 1 ? 'finger' : `${count} fingers`}?`}
+            ? <>not quite, it was <span className="text-redpen">{actualCount}</span></>
+            : 'not quite!'
+          : <span className="hi">yes! {count} it is</span>}
       </p>
-      <p className="text-center text-gray-400 text-sm mb-5">
+      <p className="text-center text-lg text-pen-soft mt-1 mb-4">
         {freeMode
-          ? actualCount !== undefined
-            ? `Pick the right ${actualCount === 1 ? 'finger' : `${actualCount} fingers`} for 5 pts`
-            : 'Pick the right fingers for 5 pts'
-          : `Select ${count} — bonus points!`}
+          ? `which ${actualCount === 1 ? 'finger was it' : 'fingers were they'}? right ones still get you 5`
+          : `now which ${count === 1 ? 'finger' : `${count} fingers`}? nail it for 30`}
       </p>
-      <div className="flex gap-2 justify-center mb-6">
-        {FINGERS.map(({ name, label, emoji }) => {
+      <div className="flex gap-2 justify-center mb-5">
+        {FINGERS.map(({ name, label }, i) => {
           const isSelected = selected.includes(name)
-          const maxReached = freeMode
-            ? actualCount !== undefined && !isSelected && selected.length >= actualCount
-            : !isSelected && selected.length >= count
+          const maxReached = target !== undefined && !isSelected && selected.length >= target
           return (
             <button
               key={name}
               onClick={() => onToggle(name)}
               disabled={disabled || maxReached}
-              className={`flex flex-col items-center gap-1 rounded-2xl w-14 h-20 justify-center transition-colors ${
-                isSelected
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-white/10 text-gray-300 hover:bg-white/20 disabled:opacity-30'
+              aria-pressed={isSelected}
+              className={`${i % 2 ? 'sketch-alt' : 'sketch'} w-14 h-[84px] flex flex-col items-center justify-between pt-2 pb-1 transition-transform active:scale-95 disabled:opacity-35 ${
+                isSelected ? '!bg-hi -translate-y-1' : ''
               }`}
             >
-              <span className="text-2xl">{emoji}</span>
-              <span className="text-xs font-semibold">{label}</span>
+              <HandGlyph raised={[name]} fill={isSelected ? '#F3FF4F' : '#fff'} className="w-8 text-pen" />
+              <span className="text-sm leading-none">{label}</span>
             </button>
           )
         })}
       </div>
-      <button
-        onClick={onSubmit}
-        disabled={!canSubmit || disabled}
-        className="w-full bg-brand-500 hover:bg-brand-400 disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-colors"
-      >
-        {freeMode
-          ? actualCount !== undefined
-            ? `Submit fingers (${selected.length}/${actualCount})`
-            : `Submit fingers (${selected.length} selected)`
-          : `Submit fingers (${selected.length}/${count})`}
+      <button onClick={onSubmit} disabled={!canSubmit || disabled} className="btn-pen w-full">
+        {disabled ? 'checking…' : `that's my guess (${selected.length}/${target ?? '?'})`}
       </button>
     </div>
   )

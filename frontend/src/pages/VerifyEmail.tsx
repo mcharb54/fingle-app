@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { authApi } from '../api'
 import { useAuth } from '../context/AuthContext'
+import HandGlyph from '../components/ui/HandGlyph'
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams()
@@ -32,23 +33,23 @@ export default function VerifyEmail() {
   }, [token])
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6">
+    <div className="quiet min-h-screen flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center">
         {status === 'loading' && (
           <>
-            <div className="text-6xl mb-6">⏳</div>
-            <p className="text-gray-400">Verifying your email…</p>
+            <HandGlyph raised={['thumb', 'index', 'middle', 'ring', 'pinky']} className="w-16 mx-auto text-pen mb-5 animate-wiggle" />
+            <p className="text-pen-soft">Verifying your email…</p>
           </>
         )}
 
         {status === 'success' && (
           <>
-            <div className="text-6xl mb-6">✅</div>
-            <h2 className="text-2xl font-black text-white mb-3">Email verified!</h2>
-            <p className="text-gray-400 text-sm mb-8">You're all set. Your account is fully confirmed.</p>
+            <HandGlyph raised={['thumb']} className="w-16 mx-auto text-pen mb-5 -rotate-6" />
+            <h2 className="page-title mb-3">Email verified!</h2>
+            <p className="text-pen-soft mb-8">You're all set. Your account is fully confirmed.</p>
             <Link
               to="/"
-              className="block w-full bg-brand-500 hover:bg-brand-400 text-white font-bold py-3 rounded-xl transition-colors"
+              className="btn-pen w-full"
             >
               Go to Fingle
             </Link>
@@ -57,12 +58,12 @@ export default function VerifyEmail() {
 
         {status === 'error' && (
           <>
-            <div className="text-6xl mb-6">❌</div>
-            <h2 className="text-2xl font-black text-white mb-3">Verification failed</h2>
-            <p className="text-gray-400 text-sm mb-8">{message}</p>
+            <HandGlyph raised={[]} className="w-16 mx-auto text-redpen mb-5 rotate-6" />
+            <h2 className="page-title mb-3">Verification failed</h2>
+            <p className="text-pen-soft mb-8">{message}</p>
             <Link
               to="/"
-              className="block w-full bg-brand-500 hover:bg-brand-400 text-white font-bold py-3 rounded-xl transition-colors"
+              className="btn-pen w-full"
             >
               Back to Fingle
             </Link>

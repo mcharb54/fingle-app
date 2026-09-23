@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import type { Challenge, Comment, PublicUser, Reaction } from '../types'
 import { reactionsApi, commentsApi } from '../api'
 import { useAuth } from '../context/AuthContext'
+import Avatar from './ui/Avatar'
+import Icon from './ui/Icon'
 
 const REACTION_EMOJIS = ['👍', '👎', '🫶', '👌', '🤙', '🖕', '✌️', '🙌', '🤟', '🤘', '🙏']
 
@@ -13,6 +15,8 @@ interface Props {
   defaultMinimized?: boolean
   recipients?: PublicUser[]
   answeredCount?: number
+  /** Sent tab: each recipient's guess, for the group score line */
+  results?: { user: PublicUser; guess: Challenge['guess'] }[]
 }
 
 function timeAgo(iso: string): string {
@@ -25,7 +29,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function ChallengeCard({ challenge, isSent = false, defaultMinimized = false, recipients, answeredCount }: Props) {
+export default function ChallengeCard({ challenge, isSent = false, defaultMinimized = false, recipients, answeredCount, results }: Props) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const isAnswered = !!challenge.guess
@@ -67,6 +71,35 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
     ? recipients.map((r) => r.username).join(', ')
     : person?.username ?? ''
   const coRecipientNames = !isSent ? (challenge.coRecipients ?? []).map((r) => r.username) : []
+
+  // A slight, stable tilt per card so the feed looks taped in by hand
+  const tilt = ((challenge.id.charCodeAt(challenge.id.length - 1) % 5) - 2) * 0.35
+
+  const status: { label: string; tone: 'score' | 'zero' | 'partial' | 'done' | 'waiting' } | null = isSent
+    ? totalRecipients > 1
+      ? { label: `${resolvedAnsweredCount}/${totalRecipients} got it`, tone: allAnswered ? 'done' : resolvedAnsweredCount > 0 ? 'partial' : 'waiting' }
+      : isAnswered
+        ? { label: `+${challenge.guess!.points}`, tone: challenge.guess!.points > 0 ? 'score' : 'zero' }
+        : { label: 'waiting…', tone: 'waiting' }
+    : isAnswered && challenge.guess
+      ? { label: `+${challenge.guess.points}`, tone: challenge.guess.points > 0 ? 'score' : 'zero' }
+      : null
+
+  const title = isSent ? `to ${displayName}` : `${displayName} sent you one`
+  const meta = isSent
+    ? totalRecipients === 1 && isAnswered
+      ? `answered ${timeAgo(challenge.guess!.createdAt)}`
+      : `sent ${timeAgo(challenge.createdAt)}`
+    : coRecipientNames.length > 0
+      ? `${timeAgo(challenge.createdAt)} · also sent to ${coRecipientNames.join(', ')}`
+      : timeAgo(challenge.createdAt)
+
+  // Who scored what. Sent: every recipient. Inbox: the others, once you've guessed.
+  const scoreLine: { name: string; points: number | null }[] = isSent
+    ? (results ?? []).map((r) => ({ name: r.user.username, points: r.guess ? r.guess.points : null }))
+    : (challenge.coResults ?? []).map((r) => ({ name: r.user.username, points: r.points }))
+  const stumperEarned = isSent ? (results ?? []).reduce((sum, r) => sum + (r.guess?.senderPoints ?? 0), 0) : 0
+  const progress = challenge.groupProgress
 
   // Show social features only when photo is visible and accessible
   const photoVisible = !isMinimized && (isSent || isAnswered)
@@ -132,70 +165,38 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
   }
 
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-zinc-900 select-none isolate">
+    <article className="polaroid select-none isolate" style={{ transform: `rotate(${tilt}deg)` }}>
+      <span className="tape" aria-hidden="true" />
+
       {/* Photo */}
       {!isMinimized && (
         <div
           onClick={handleTap}
-          className={`w-full relative ${!isSent && !isAnswered ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+          className={`relative overflow-hidden bg-grid/40 ${!isSent && !isAnswered ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
         >
           <img
             src={challenge.photoUrl}
-            alt="challenge"
-            className={`w-full h-auto block bg-zinc-950 transition-all duration-300 ${
-              !isSent && !isAnswered ? 'blur-3xl scale-110' : ''
-            }`}
+            alt={!isSent && !isAnswered ? 'Hidden fingle — guess to reveal' : `Fingle from ${challenge.sender?.username ?? 'you'}`}
+            className={`w-full h-auto block transition-all duration-300 ${!isSent && !isAnswered ? 'blur-2xl scale-110' : ''}`}
           />
 
-          {/* Inbox: lock overlay on unanswered */}
+          {/* Inbox: locked until guessed */}
           {!isSent && !isAnswered && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
-              <div className="text-6xl mb-3">🔒</div>
-              <p className="text-white font-bold text-lg">Tap to guess</p>
-              <p className="text-gray-300 text-sm mt-1">How many fingers?</p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <span className="font-marker text-7xl text-white -rotate-6" style={{ textShadow: '3px 3px 0 #1F3BA6' }}>???</span>
+              <span className="font-marker text-lg text-white bg-pen px-4 py-1.5 rotate-1" style={{ borderRadius: '12px 4px 14px 5px' }}>
+                tap to guess
+              </span>
             </div>
           )}
 
-          {/* Inbox: result badge */}
-          {!isSent && isAnswered && challenge.guess && (
-            <div
-              className={`absolute top-3 right-3 rounded-full px-3 py-1 text-xs font-bold ${
-                challenge.guess.points > 0 ? 'bg-green-500' : 'bg-gray-600'
-              }`}
-            >
-              +{challenge.guess.points} pts
-            </div>
-          )}
+          {status && <StatusChip {...status} className="absolute top-2.5 right-2.5" />}
 
-          {/* Sent: status badge */}
-          {isSent && (
-            <div
-              className={`absolute top-3 right-3 rounded-full px-3 py-1 text-xs font-bold ${
-                totalRecipients > 1
-                  ? allAnswered
-                    ? 'bg-green-500'
-                    : resolvedAnsweredCount > 0
-                      ? 'bg-yellow-500 text-black'
-                      : 'bg-black/60 text-gray-300'
-                  : isAnswered
-                    ? challenge.guess!.points > 0
-                      ? 'bg-green-500'
-                      : 'bg-gray-600'
-                    : 'bg-black/60 text-gray-300'
-              }`}
-            >
-              {totalRecipients > 1
-                ? `${resolvedAnsweredCount}/${totalRecipients} answered`
-                : isAnswered ? `+${challenge.guess!.points} pts` : 'Waiting…'}
-            </div>
-          )}
-
-          {/* Emoji picker + reaction tags overlay */}
+          {/* Emoji picker + reaction stickers */}
           {photoVisible && (
             <>
-              {/* Expanded emoji picker */}
               {showEmojiPicker && (
-                <div className="absolute bottom-12 left-2 right-2 bg-black/75 backdrop-blur-sm rounded-2xl p-2 flex flex-wrap gap-1.5 justify-center z-20">
+                <div className="absolute bottom-14 left-2 right-2 sketch p-2 flex flex-wrap gap-1 justify-center z-20">
                   {REACTION_EMOJIS.map((emoji) => {
                     const entry = reactionCounts.find((r) => r.emoji === emoji)
                     return (
@@ -206,7 +207,8 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                           handleReaction(emoji)
                           setShowEmojiPicker(false)
                         }}
-                        className={`text-2xl p-1 rounded-full transition-transform hover:scale-110 active:scale-95 ${entry?.reacted ? 'bg-brand-500/40' : ''}`}
+                        className={`text-2xl w-10 h-10 rounded-full transition-transform active:scale-90 ${entry?.reacted ? 'bg-hi' : ''}`}
+                        aria-label={`React ${emoji}`}
                       >
                         {emoji}
                       </button>
@@ -215,8 +217,7 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                 </div>
               )}
 
-              {/* Reaction tags — bottom right (tap to view who reacted) */}
-              <div className="absolute bottom-3 right-3 flex items-center gap-1">
+              <div className="absolute bottom-2.5 right-2.5 flex flex-wrap justify-end items-center gap-1 max-w-[70%]">
                 {reactionCounts
                   .filter(({ count }) => count > 0)
                   .map(({ emoji, count, reacted }) => (
@@ -227,66 +228,52 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                         setReactionsFilter(null)
                         setShowReactionsPopup(true)
                       }}
-                      className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-base backdrop-blur-sm border transition-colors ${
-                        reacted
-                          ? 'bg-brand-500/60 border-brand-400'
-                          : 'bg-black/60 border-white/20'
-                      }`}
+                      className={`flex items-center gap-0.5 px-2 py-0.5 text-base border-2 border-pen ${reacted ? 'bg-hi' : 'bg-white'}`}
+                      style={{ borderRadius: '10px 4px 12px 5px' }}
                     >
                       <span>{emoji}</span>
-                      {count > 1 && <span className="text-xs text-white font-semibold leading-none">{count}</span>}
+                      {count > 1 && <span className="text-sm leading-none">{count}</span>}
                     </button>
                   ))}
               </div>
 
-              {/* Emoji picker trigger — bottom left */}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   setShowEmojiPicker((v) => !v)
                 }}
-                className={`absolute bottom-3 left-3 w-9 h-9 rounded-full flex items-center justify-center text-xl backdrop-blur-sm border transition-colors z-10 ${
-                  showEmojiPicker
-                    ? 'bg-white/25 border-white/40'
-                    : 'bg-black/50 border-white/10'
-                }`}
+                className={`absolute bottom-2.5 left-2.5 w-10 h-10 rounded-full border-2 border-pen flex items-center justify-center text-xl z-10 ${showEmojiPicker ? 'bg-hi' : 'bg-white'}`}
+                aria-label="Add a reaction"
               >
-                {reactionCounts.find(({ reacted }) => reacted)?.emoji ?? '🙂'}
+                {reactionCounts.find(({ reacted }) => reacted)?.emoji ?? <Icon name="smile" className="w-6 h-6" />}
               </button>
             </>
           )}
         </div>
       )}
 
-
-      {/* Reactions popup — who reacted (portaled to body to escape stacking contexts) */}
+      {/* Reactions sheet — portaled to body to escape the card's stacking context */}
       {showReactionsPopup && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end justify-center" onClick={() => setShowReactionsPopup(false)}>
-          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute inset-0 bg-pen/30" />
           <div
-            className="relative w-full max-w-md bg-zinc-900 rounded-t-2xl max-h-[60vh] flex flex-col"
+            className="relative w-full max-w-md graph border-t-2 border-pen rounded-t-3xl max-h-[60vh] flex flex-col text-pen"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <h3 className="text-white font-bold text-lg">Reactions ({reactions.length})</h3>
-              <button
-                onClick={() => setShowReactionsPopup(false)}
-                className="text-gray-400 hover:text-white text-xl leading-none p-1"
-              >
-                ✕
+            <div className="flex items-center justify-between px-5 pt-5 pb-2">
+              <h3 className="font-marker text-2xl">reactions <span className="text-pen-soft">({reactions.length})</span></h3>
+              <button onClick={() => setShowReactionsPopup(false)} className="p-1" aria-label="Close">
+                <Icon name="close" />
               </button>
             </div>
 
-            {/* Filter tabs */}
-            <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
+            <div className="flex gap-2 px-5 pb-3 overflow-x-auto">
               <button
                 onClick={() => setReactionsFilter(null)}
-                className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors flex-shrink-0 ${
-                  reactionsFilter === null ? 'bg-brand-500 text-white' : 'bg-zinc-800 text-gray-400'
-                }`}
+                className={`px-3 py-1 text-base border-2 border-pen flex-shrink-0 ${reactionsFilter === null ? 'bg-hi' : 'bg-white'}`}
+                style={{ borderRadius: '10px 4px 12px 5px' }}
               >
-                All
+                all
               </button>
               {reactionCounts
                 .filter(({ count }) => count > 0)
@@ -294,9 +281,8 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                   <button
                     key={emoji}
                     onClick={() => setReactionsFilter(emoji)}
-                    className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors flex-shrink-0 flex items-center gap-1 ${
-                      reactionsFilter === emoji ? 'bg-brand-500 text-white' : 'bg-zinc-800 text-gray-400'
-                    }`}
+                    className={`px-3 py-1 text-base border-2 border-pen flex-shrink-0 flex items-center gap-1 ${reactionsFilter === emoji ? 'bg-hi' : 'bg-white'}`}
+                    style={{ borderRadius: '10px 4px 12px 5px' }}
                   >
                     <span>{emoji}</span>
                     <span>{count}</span>
@@ -304,22 +290,17 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
                 ))}
             </div>
 
-            {/* User list */}
-            <div className="overflow-y-auto px-4 pb-4 space-y-3">
+            <div className="overflow-y-auto px-5 pb-6 divide-y-2 divide-dashed divide-pen-faint/60">
               {reactions
                 .filter((r) => reactionsFilter === null || r.emoji === reactionsFilter)
                 .map((r) => (
-                  <div key={r.id} className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                      {r.user.username[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">
-                        {r.user.username}
-                        {r.userId === user?.id && <span className="text-gray-500 font-normal ml-1">You</span>}
-                      </p>
-                    </div>
-                    <span className="text-xl flex-shrink-0">{r.emoji}</span>
+                  <div key={r.id} className="flex items-center gap-3 py-2.5">
+                    <Avatar name={r.user.username} size="sm" />
+                    <p className="flex-1 min-w-0 text-lg truncate">
+                      {r.user.username}
+                      {r.userId === user?.id && <span className="text-pen-soft ml-1.5">(you)</span>}
+                    </p>
+                    <span className="text-2xl flex-shrink-0">{r.emoji}</span>
                   </div>
                 ))}
             </div>
@@ -328,146 +309,139 @@ export default function ChallengeCard({ challenge, isSent = false, defaultMinimi
         document.body,
       )}
 
-      {/* Footer */}
-      <div className="px-4 py-3 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
-          {displayName[0]?.toUpperCase()}
-        </div>
+      {/* Caption, written on the polaroid */}
+      <div className="flex items-center gap-2.5 pt-2.5 px-1">
+        {isSent && totalRecipients > 1 ? (
+          <span className="w-7 h-7 flex-shrink-0 rounded-full border-2 border-pen bg-white inline-flex items-center justify-center" aria-hidden="true">
+            <Icon name="users" className="w-4 h-4" />
+          </span>
+        ) : (
+          <Avatar name={isSent ? (recipients?.[0]?.username ?? displayName) : displayName} size="sm" />
+        )}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm truncate text-white">
-            {isSent ? 'To ' : ''}{displayName}
-          </p>
-          <p className="text-gray-500 text-xs">
-            {isSent
-              ? totalRecipients > 1
-                ? `${resolvedAnsweredCount}/${totalRecipients} answered · ${timeAgo(challenge.createdAt)}`
-                : isAnswered
-                  ? `Answered · ${timeAgo(challenge.guess!.createdAt)}`
-                  : `Sent · ${timeAgo(challenge.createdAt)}`
-              : coRecipientNames.length > 0
-                ? `${timeAgo(challenge.createdAt)} · with ${coRecipientNames.join(', ')}`
-                : timeAgo(challenge.createdAt)}
-          </p>
+          <p className="text-lg leading-tight truncate">{title}</p>
+          <p className="text-sm text-pen-soft leading-tight truncate">{meta}</p>
         </div>
         {!isSent && !isAnswered && !isMinimized && (
-          <span className="w-2.5 h-2.5 rounded-full bg-brand-400 flex-shrink-0" />
+          <span className="w-3 h-3 rounded-full bg-redpen flex-shrink-0" aria-label="New" />
         )}
-        {/* Comment count while the thread is hidden */}
-        {isMinimized && (isSent || isAnswered) && comments.length > 0 && (
-          <span className="text-xs text-gray-400 flex-shrink-0">💬 {comments.length}</span>
-        )}
-        {/* Minimized status badge (inline when photo hidden) */}
         {isMinimized && (
-          <span
-            className={`text-xs font-bold rounded-full px-2.5 py-0.5 flex-shrink-0 ${
-              isSent
-                ? totalRecipients > 1
-                  ? allAnswered
-                    ? 'bg-green-500 text-white'
-                    : resolvedAnsweredCount > 0
-                      ? 'bg-yellow-500 text-black'
-                      : 'bg-black/60 text-gray-300'
-                  : isAnswered && challenge.guess
-                    ? challenge.guess.points > 0
-                      ? 'bg-green-500 text-white'
-                      : 'bg-gray-600 text-white'
-                    : 'bg-black/60 text-gray-300'
-                : isAnswered && challenge.guess
-                  ? challenge.guess.points > 0
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-600 text-white'
-                  : 'bg-brand-400/20 text-brand-400'
-            }`}
-          >
-            {isSent
-              ? totalRecipients > 1
-                ? `${resolvedAnsweredCount}/${totalRecipients}`
-                : isAnswered
-                  ? `+${challenge.guess!.points} pts`
-                  : 'Waiting…'
-              : isAnswered && challenge.guess
-                ? `+${challenge.guess.points} pts`
-                : '●'}
-          </span>
+          <>
+            {(isSent || isAnswered) && comments.length > 0 && (
+              <span className="text-sm text-pen-soft flex-shrink-0">{comments.length} note{comments.length > 1 ? 's' : ''}</span>
+            )}
+            {status ? (
+              <StatusChip {...status} />
+            ) : (
+              <span className="font-marker text-base text-redpen flex-shrink-0">new!</span>
+            )}
+          </>
         )}
         <button
           onClick={() => setIsMinimized((v) => !v)}
-          className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0 p-1"
-          aria-label={isMinimized ? 'Expand photo' : 'Collapse photo'}
+          className="text-pen-soft flex-shrink-0 p-1"
+          aria-label={isMinimized ? 'Show photo' : 'Hide photo'}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className={`w-4 h-4 transition-transform duration-200 ${isMinimized ? '' : 'rotate-180'}`}
-          >
-            <path
-              fillRule="evenodd"
-              d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <Icon name="chevron" className={`w-5 h-5 transition-transform duration-200 ${isMinimized ? '' : 'rotate-180'}`} />
         </button>
       </div>
 
-      {/* Comments section */}
+      {/* Group scorecard */}
+      {(scoreLine.length > 1 || (isSent && stumperEarned > 0) || (!isSent && scoreLine.length > 0)) && (
+        <div className="mx-1 mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-base">
+          {scoreLine.map(({ name, points }) => (
+            <span key={name} className="whitespace-nowrap">
+              <span className="font-marker text-sm mr-1">{name}</span>
+              {points === null ? (
+                <span className="text-pen-faint">…</span>
+              ) : (
+                <span className={points > 0 ? 'text-redpen' : 'text-pen-soft'}>+{points}</span>
+              )}
+            </span>
+          ))}
+          {stumperEarned > 0 && (
+            <span className="hi whitespace-nowrap">you got +{stumperEarned} for stumping</span>
+          )}
+        </div>
+      )}
+      {!isSent && !isAnswered && progress && progress.total > 1 && progress.guessed > 0 && (
+        <p className="mx-1 mt-1.5 text-base">
+          <span className="hi">{progress.cracked} of {progress.total} cracked it</span>
+          {progress.guessed > progress.cracked && <span className="text-pen-soft">, {progress.guessed - progress.cracked} got stumped</span>}
+        </p>
+      )}
+
+      {/* Comments — notes in the margin */}
       {photoVisible && (
-        <div className="px-4 pb-4 border-t border-white/10 mt-1 pt-3 space-y-2">
+        <div className="mx-1 mt-2.5 pt-2 border-t-2 border-dashed border-pen-faint space-y-1.5">
           {(() => {
             const visible = showAllComments ? comments : comments.slice(0, 3)
             const hidden = comments.length - 3
             return (
               <>
                 {visible.map((c) => (
-                  <div key={c.id} className="flex items-start gap-2 group">
-                    <div className="w-6 h-6 rounded-full bg-brand-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                      {c.user.username[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs font-semibold text-gray-300 mr-1">{c.user.username}</span>
-                      <span className="text-xs text-gray-400 break-words">{c.text}</span>
-                    </div>
+                  <div key={c.id} className="flex items-start gap-2">
+                    <p className="flex-1 min-w-0 text-base leading-snug break-words">
+                      <span className="font-marker text-sm mr-1.5">{c.user.username}</span>
+                      {c.text}
+                    </p>
                     {c.userId === user?.id && (
                       <button
                         onClick={() => handleDeleteComment(c.id)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-opacity text-xs flex-shrink-0"
+                        className="text-pen-faint hover:text-redpen flex-shrink-0 p-0.5"
                         aria-label="Delete comment"
                       >
-                        ✕
+                        <Icon name="close" className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                 ))}
                 {!showAllComments && hidden > 0 && (
-                  <button
-                    onClick={() => setShowAllComments(true)}
-                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                  >
-                    Show {hidden} more comment{hidden > 1 ? 's' : ''}
+                  <button onClick={() => setShowAllComments(true)} className="text-sm text-pen-soft link">
+                    {hidden} more note{hidden > 1 ? 's' : ''}
                   </button>
                 )}
               </>
             )
           })()}
-          <form onSubmit={handleAddComment} className="flex gap-2 mt-2">
+          <form onSubmit={handleAddComment} className="flex items-end gap-3 pt-1 pb-0.5">
             <input
               ref={commentInputRef}
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               maxLength={500}
-              placeholder="Add a comment…"
-              className="flex-1 bg-zinc-800 rounded-full px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:ring-1 focus:ring-brand-500"
+              placeholder="write something…"
+              aria-label="Add a comment"
+              className="flex-1 min-w-0 bg-transparent border-b-2 border-pen-faint focus:border-pen outline-none text-base py-1 placeholder-pen-faint"
             />
             <button
               type="submit"
               disabled={!commentText.trim() || submittingComment}
-              className="text-brand-400 text-xs font-semibold disabled:opacity-40 transition-opacity"
+              className="font-marker text-lg text-redpen disabled:opacity-30 pb-0.5"
             >
-              Post
+              post
             </button>
           </form>
         </div>
       )}
-    </div>
+    </article>
+  )
+}
+
+function StatusChip({ label, tone, className = '' }: { label: string; tone: 'score' | 'zero' | 'partial' | 'done' | 'waiting'; className?: string }) {
+  const styles = {
+    score: 'text-redpen border-redpen bg-white rotate-6 text-xl',
+    zero: 'text-pen-soft border-pen-soft bg-white rotate-3 text-lg',
+    partial: 'text-pen border-pen bg-hi -rotate-2 text-base',
+    done: 'text-pen border-pen bg-marker-green -rotate-2 text-base',
+    waiting: 'text-pen-soft border-pen-faint bg-white text-base',
+  }[tone]
+  return (
+    <span
+      className={`font-marker leading-none px-2.5 py-1 border-2 flex-shrink-0 ${styles} ${className}`}
+      style={{ borderRadius: '50% 45% 55% 48% / 55% 50% 48% 52%' }}
+    >
+      {label}
+    </span>
   )
 }

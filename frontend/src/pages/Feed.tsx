@@ -4,6 +4,9 @@ import { challengesApi } from '../api'
 import type { Challenge, Comment, PublicUser } from '../types'
 import ChallengeCard from '../components/ChallengeCard'
 import { useSocket } from '../hooks/useSocket'
+import HandGlyph from '../components/ui/HandGlyph'
+import { StreakChip } from '../components/ui/Progress'
+import { useStats } from '../hooks/useStats'
 
 const PAGE_SIZE = 5
 
@@ -12,6 +15,7 @@ interface SentGroup {
   challengeIds: string[]
   recipients: PublicUser[]
   answeredCount: number
+  results: { user: PublicUser; guess: Challenge['guess'] }[]
 }
 
 // Collapse one multi-recipient send into a single card. Every row in a group
@@ -26,10 +30,12 @@ function groupSent(challenges: Challenge[]): SentGroup[] {
         challengeIds: [c.id],
         recipients: c.receiver ? [c.receiver] : [],
         answeredCount: c.guess ? 1 : 0,
+        results: c.receiver ? [{ user: c.receiver, guess: c.guess }] : [],
       })
     } else {
       g.challengeIds.push(c.id)
       if (c.receiver) g.recipients.push(c.receiver)
+      if (c.receiver) g.results.push({ user: c.receiver, guess: c.guess })
       if (c.guess) g.answeredCount++
     }
   }
@@ -37,6 +43,7 @@ function groupSent(challenges: Challenge[]): SentGroup[] {
 }
 
 export default function Feed() {
+  const { stats } = useStats()
   const [searchParams, setSearchParams] = useSearchParams()
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [loading, setLoading] = useState(true)
@@ -196,48 +203,55 @@ export default function Feed() {
   const hasMore = effectiveVisible < totalItems
 
   return (
-    <div className="min-h-full bg-black">
+    <div className="min-h-full">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-black/80 backdrop-blur border-b border-white/10 safe-top">
-        <div className="flex items-center px-4 py-3">
-          <h1 className="text-2xl font-black text-brand-400 flex-1">Fingle</h1>
-          {tab === 'inbox' && unread > 0 && (
-            <span className="bg-brand-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
-              {unread} new
+      <div className="sticky top-0 z-10 paper-bar safe-top">
+        <div className="flex items-center gap-3 px-4 pt-3 pb-2">
+          <h1 className="font-marker text-3xl leading-none flex-1"><span className="hi">fingle</span></h1>
+          {stats && <StreakChip daily={stats.daily} />}
+          {stats && (
+            <span className="text-lg leading-none" title={`${stats.xp} points`}>
+              lv <span className="text-2xl">{stats.level}</span>
             </span>
           )}
         </div>
-        <div className="flex border-b border-white/10">
+        <div className="flex gap-6 px-4 border-b-2 border-dashed border-pen-faint">
           {(['inbox', 'sent'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 text-sm font-semibold capitalize transition-colors ${
-                tab === t ? 'text-brand-400 border-b-2 border-brand-400' : 'text-gray-500'
-              }`}
+              className={`font-marker text-lg pb-1.5 pt-1 transition-colors ${tab === t ? 'text-pen' : 'text-pen-faint'}`}
             >
-              {t}
+              <span className={tab === t ? 'hi' : ''}>{t}</span>
+              {t === 'inbox' && unread > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-redpen text-white font-sans text-sm leading-none align-middle">
+                  {unread}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4">
+      <div className="px-5 pt-6 pb-8 space-y-7">
         {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="rounded-2xl bg-zinc-900 animate-pulse h-72" />
+          Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="polaroid animate-pulse" style={{ transform: `rotate(${i ? 0.6 : -0.6}deg)` }}>
+              <div className="h-72 bg-grid/60" />
+              <div className="h-5 w-40 mt-3 bg-grid/80 rounded" />
+            </div>
           ))
         ) : challenges.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="text-6xl mb-4">✌️</div>
-            <p className="text-white font-bold text-xl">No challenges yet</p>
-            <p className="text-gray-500 text-sm mt-2">
-              {tab === 'inbox' ? 'Ask a friend to send you one!' : 'Send a challenge to a friend!'}
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <HandGlyph raised={['index', 'middle']} className="w-24 text-pen -rotate-6" />
+            <p className="font-marker text-2xl mt-5">nothing here yet</p>
+            <p className="text-lg text-pen-soft mt-1">
+              {tab === 'inbox' ? 'when a friend sends you a fingle, it shows up here' : 'snap your fingers and stump a friend'}
             </p>
           </div>
         ) : tab === 'sent' ? (
-          sentGroups.slice(0, effectiveVisible).map(({ main, challengeIds, recipients, answeredCount }) => (
+          sentGroups.slice(0, effectiveVisible).map(({ main, challengeIds, recipients, answeredCount, results }) => (
             <div key={main.id} id={`challenge-${main.id}`}>
               {/* Extra anchor IDs so notification highlights work for any challenge in the group */}
               {challengeIds.filter(cid => cid !== main.id).map(cid => (
@@ -249,6 +263,7 @@ export default function Feed() {
                 defaultMinimized={minimizePhotos && !(highlightId && challengeIds.includes(highlightId))}
                 recipients={recipients}
                 answeredCount={answeredCount}
+                results={results}
               />
             </div>
           ))

@@ -33,6 +33,9 @@ export interface PublicUser {
 
 export interface GuessResult {
   points: number
+  quickDraw?: boolean
+  // Sent tab only: stumper points you earned from this guess
+  senderPoints?: number
   isCountCorrect: boolean
   isFingersCorrect: boolean
   fingerCountGuess: number
@@ -74,6 +77,61 @@ export interface Challenge {
   comments?: Comment[]
   // Inbox only: other friends the same fingle was sent to
   coRecipients?: PublicUser[]
+  // Inbox only: how the group is doing (counts are spoiler-free)
+  groupProgress?: { total: number; guessed: number; cracked: number }
+  // Inbox only, after you've guessed: how the others scored (null = not guessed yet)
+  coResults?: { user: PublicUser; points: number | null }[]
+}
+
+export interface Badge {
+  id: string
+  name: string
+  description: string
+  earnedAt?: string | null
+}
+
+export interface DailyStreak {
+  days: number
+  todayDone: boolean
+  freezeUsedThisWeek: boolean
+}
+
+export interface PlayerStats {
+  xp: number
+  level: number
+  levelStart: number
+  nextLevelAt: number
+  hotStreak: number
+  bestHotStreak: number
+  daily: DailyStreak
+  guesses: number
+  perfects: number
+  countCorrect: number
+  quickDraws: number
+  sent: number
+  friendGuessesOnMine: number
+  stumps: number
+  stumperPoints: number
+  title: string
+}
+
+export interface HeadToHead {
+  friend: PublicUser
+  youCracked: number
+  theirFingles: number
+  theyCracked: number
+  yourFingles: number
+}
+
+export interface GuessProgress {
+  xpBefore: number
+  xp: number
+  level: number
+  levelStart: number
+  nextLevelAt: number
+  hotStreak: number
+  daily: DailyStreak
+  newBadges: Badge[]
 }
 
 export interface FriendEntry {

@@ -5,6 +5,10 @@ import type { Challenge, FingerName } from '../types'
 import CountPicker from '../components/CountPicker'
 import FingerPicker from '../components/FingerPicker'
 import PointsAnimation from '../components/PointsAnimation'
+import Icon from '../components/ui/Icon'
+import { useAuth } from '../context/AuthContext'
+import { useStats } from '../hooks/useStats'
+import type { GuessProgress } from '../types'
 
 type Step = 'count' | 'fingers' | 'reveal'
 
@@ -15,11 +19,28 @@ interface RevealData {
   correctCount: number
   correctFingers: FingerName[]
   photoUrl: string
+  quickDraw?: boolean
+}
+
+const QUICK_DRAW_MS = 60 * 60 * 1000
+
+// Minutes left to earn the quick-draw bonus, ticking while the page is open
+function useQuickDrawMinutes(sentAt: string | undefined): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(t)
+  }, [])
+  if (!sentAt) return 0
+  return Math.max(0, Math.ceil((new Date(sentAt).getTime() + QUICK_DRAW_MS - now) / 60_000))
 }
 
 export default function ChallengePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { refreshUser } = useAuth()
+  const { stats } = useStats()
+  const [progress, setProgress] = useState<GuessProgress | undefined>(undefined)
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [loading, setLoading] = useState(true)
   const [step, setStep] = useState<Step>('count')
@@ -45,6 +66,7 @@ export default function ChallengePage() {
             correctCount: c.fingerCount,
             correctFingers: c.whichFingers,
             photoUrl: c.photoUrl,
+            quickDraw: c.guess.quickDraw,
           })
           setStep('reveal')
         } else {
@@ -66,9 +88,11 @@ export default function ChallengePage() {
 
       if (challenge.fingerCount === 5) {
         const allFingers: FingerName[] = ['thumb', 'index', 'middle', 'ring', 'pinky']
-        const { result } = await challengesApi.guess(challenge.id, count, allFingers)
+        const { result, progress } = await challengesApi.guess(challenge.id, count, allFingers)
         setReveal(result)
+        setProgress(progress)
         setStep('reveal')
+        refreshUser()
       } else {
         setStep('fingers')
       }
@@ -83,9 +107,11 @@ export default function ChallengePage() {
     if (!challenge) return
     setSubmitting(true)
     try {
-      const { result } = await challengesApi.guess(challenge.id, countGuess, selectedFingers)
+      const { result, progress } = await challengesApi.guess(challenge.id, countGuess, selectedFingers)
       setReveal(result)
+      setProgress(progress)
       setStep('reveal')
+      refreshUser()
     } catch (err) {
       console.error(err)
     } finally {
@@ -99,45 +125,50 @@ export default function ChallengePage() {
     )
   }
 
+  const quickDrawMinutes = useQuickDrawMinutes(challenge?.createdAt)
+
   if (loading || !challenge) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-gray-400 animate-pulse">Loading…</div>
+      <div className="min-h-full flex items-center justify-center font-marker text-2xl text-pen-soft">
+        hang on…
       </div>
     )
   }
 
+  const revealed = step === 'reveal'
+  const stakes = [
+    stats && stats.hotStreak >= 2 ? `hot streak ${stats.hotStreak} on the line` : null,
+    quickDrawMinutes > 0 ? `quick draw +5 for ${quickDrawMinutes} more min` : null,
+  ].filter(Boolean)
+
   return (
-    <div className="min-h-screen bg-black flex flex-col">
-      <div className="flex items-center px-4 py-3 safe-top">
-        <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white transition-colors">
-          ← Back
+    <div className="min-h-full flex flex-col">
+      <div className="flex items-center px-3 py-2 safe-top">
+        <button onClick={() => navigate('/')} className="p-2" aria-label="Back to feed">
+          <Icon name="back" />
         </button>
-        <p className="flex-1 text-center text-sm text-gray-400">
-          From <span className="text-white font-semibold">{challenge.sender?.username}</span>
+        <p className="flex-1 text-center text-xl mr-10">
+          from <span className="font-marker">{challenge.sender?.username}</span>
         </p>
       </div>
 
-      <div className="relative flex-1 flex items-center justify-center bg-zinc-950 overflow-hidden">
-        <img
-          src={reveal?.photoUrl ?? challenge.photoUrl}
-          alt="challenge"
-          className={`w-full max-h-[55vh] object-contain transition-all duration-500 ${
-            step !== 'reveal' ? 'blur-2xl scale-110' : ''
-          }`}
-        />
-        {step === 'reveal' && reveal && (
-          <PointsAnimation
-            points={reveal.points}
-            isCountCorrect={reveal.isCountCorrect}
-            isFingersCorrect={reveal.isFingersCorrect}
-            correctCount={reveal.correctCount}
-            correctFingers={reveal.correctFingers}
-          />
-        )}
+      <div className="flex-1 flex items-center justify-center px-8 py-3">
+        <div className="polaroid w-full max-w-sm" style={{ transform: 'rotate(-1.2deg)' }}>
+          <span className="tape" aria-hidden="true" />
+          <div className="overflow-hidden bg-grid/40">
+            <img
+              src={reveal?.photoUrl ?? challenge.photoUrl}
+              alt={revealed ? `Fingle from ${challenge.sender?.username}` : 'Hidden fingle'}
+              className={`w-full max-h-[34vh] object-contain ${revealed ? 'animate-unblur' : 'blur-2xl scale-110'}`}
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="bg-zinc-900 rounded-t-3xl p-6 pb-8">
+      <div className="graph border-t-2 border-pen rounded-t-3xl px-5 pt-5 pb-6">
+        {!revealed && stakes.length > 0 && (
+          <p className="text-center text-base text-pen-soft -mt-1 mb-3">{stakes.join(' · ')}</p>
+        )}
         {step === 'count' && (
           <CountPicker onSelect={handleCountGuess} disabled={submitting} />
         )}
@@ -152,13 +183,21 @@ export default function ChallengePage() {
             disabled={submitting}
           />
         )}
-        {step === 'reveal' && (
-          <button
-            onClick={() => navigate('/')}
-            className="w-full bg-brand-500 hover:bg-brand-400 text-white font-bold py-3 rounded-xl transition-colors"
-          >
-            Back to feed
-          </button>
+        {revealed && reveal && (
+          <>
+            <PointsAnimation
+              points={reveal.points}
+              isCountCorrect={reveal.isCountCorrect}
+              isFingersCorrect={reveal.isFingersCorrect}
+              correctCount={reveal.correctCount}
+              correctFingers={reveal.correctFingers}
+              quickDraw={reveal.quickDraw}
+              progress={progress}
+            />
+            <button onClick={() => navigate('/')} className="btn-pen w-full mt-6">
+              back to the feed
+            </button>
+          </>
         )}
       </div>
     </div>

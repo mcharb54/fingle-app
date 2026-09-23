@@ -12,7 +12,12 @@
     "db:migrate": "npm run db:migrate --workspace=backend",
     "db:generate": "npm run db:generate --workspace=backend",
     "db:studio": "npm run db:studio --workspace=backend",
-    "db:seed": "npm run db:seed --workspace=backend"
+    "db:seed": "npm run db:seed --workspace=backend",
+    "local:setup": "node scripts/setup-local.mjs",
+    "db:up": "docker compose up -d --wait db",
+    "db:down": "docker compose down",
+    "db:push": "npm run db:push --workspace=backend",
+    "db:pull-prod": "bash scripts/pull-prod-db.sh"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

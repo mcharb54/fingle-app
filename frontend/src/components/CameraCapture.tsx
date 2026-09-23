@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import Icon from './ui/Icon'
+import HandGlyph from './ui/HandGlyph'
 
 interface Props {
   onCapture: (blob: Blob, dataUrl: string) => void
@@ -113,9 +115,9 @@ export default function CameraCapture({ onCapture }: Props) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-zinc-900 text-center p-6">
-        <div className="text-4xl mb-3">📷</div>
-        <p className="text-red-400 text-sm">{error}</p>
+      <div className="flex flex-col items-center justify-center h-full graph text-center p-6">
+        <HandGlyph raised={['index']} className="w-16 text-pen mb-4" />
+        <p className="note-error">{error}</p>
       </div>
     )
   }
@@ -139,15 +141,16 @@ export default function CameraCapture({ onCapture }: Props) {
       {/* Flip camera button */}
       <button
         onClick={() => setFacingMode((f) => (f === 'user' ? 'environment' : 'user'))}
-        className="absolute top-4 right-4 bg-black/50 rounded-full p-2 text-white text-xl"
+        className="absolute top-3 right-3 w-11 h-11 rounded-full bg-white border-2 border-pen text-pen flex items-center justify-center"
+        aria-label="Flip camera"
       >
-        🔄
+        <Icon name="flip" className="w-6 h-6" />
       </button>
 
       {/* Zoom slider — only shown for back camera when zoom is supported */}
       {facingMode === 'environment' && zoomRange && (
         <div className="absolute top-4 left-4 right-16 flex items-center gap-2">
-          <span className="text-white text-xs bg-black/50 rounded px-1.5 py-0.5 tabular-nums w-10 text-center">
+          <span className="text-pen text-sm bg-white border-2 border-pen rounded-md px-1.5 tabular-nums w-12 text-center">
             {zoom.toFixed(1)}×
           </span>
           <input
@@ -157,7 +160,7 @@ export default function CameraCapture({ onCapture }: Props) {
             step={(zoomRange.max - zoomRange.min) / 100}
             value={zoom}
             onChange={(e) => applyZoom(parseFloat(e.target.value))}
-            className="flex-1 accent-white h-1"
+            className="flex-1 accent-[#F3FF4F] h-1"
           />
         </div>
       )}
@@ -166,7 +169,8 @@ export default function CameraCapture({ onCapture }: Props) {
       <div className="absolute bottom-6 left-0 right-0 flex justify-center">
         <button
           onClick={capture}
-          className="w-20 h-20 rounded-full border-4 border-white bg-white/20 active:bg-white/40 transition-colors"
+          className="w-20 h-20 rounded-full border-[5px] border-white bg-hi active:scale-90 transition-transform shadow-[0_0_0_2px_#1F3BA6]"
+          aria-label="Take photo"
         />
       </div>
     </div>

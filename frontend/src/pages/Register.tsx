@@ -2,6 +2,8 @@ import { FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../api'
 import { useAuth } from '../context/AuthContext'
+import Logo from '../components/ui/Logo'
+import HandGlyph from '../components/ui/HandGlyph'
 
 export default function Register() {
   const { login } = useAuth()
@@ -30,20 +32,20 @@ export default function Register() {
 
   if (registeredEmail) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6">
+      <div className="quiet min-h-screen flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm text-center">
-          <div className="text-6xl mb-6">📬</div>
-          <h2 className="text-2xl font-black text-white mb-3">Check your inbox</h2>
-          <p className="text-gray-400 text-sm mb-2">
+          <HandGlyph raised={['index']} className="w-16 mx-auto text-pen mb-5 -rotate-12" />
+          <h2 className="page-title mb-3">Check your inbox</h2>
+          <p className="text-pen-soft mb-2">
             We sent a verification link to
           </p>
-          <p className="text-brand-400 font-semibold mb-6">{registeredEmail}</p>
-          <p className="text-gray-500 text-xs mb-8">
+          <p className="font-bold mb-6">{registeredEmail}</p>
+          <p className="text-pen-soft text-sm mb-8">
             You can start playing right away — just verify your email when you get a chance.
           </p>
           <button
             onClick={() => navigate('/')}
-            className="w-full bg-brand-500 hover:bg-brand-400 text-white font-bold py-3 rounded-xl transition-colors"
+            className="btn-pen w-full"
           >
             Start Playing
           </button>
@@ -53,14 +55,13 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6">
+    <div className="quiet min-h-screen flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <h1 className="text-5xl font-black text-center mb-2 text-brand-400">Fingle</h1>
-        <p className="text-gray-400 text-center mb-10 text-sm">Create your account</p>
+        <Logo subtitle="Create your account" />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-500/20 border border-red-500 text-red-300 rounded-xl p-3 text-sm">
+            <div className="note-error">
               {error}
             </div>
           )}
@@ -72,7 +73,7 @@ export default function Register() {
             required
             minLength={2}
             maxLength={20}
-            className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-brand-400"
+            className="field"
           />
           <input
             type="email"
@@ -80,7 +81,7 @@ export default function Register() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-brand-400"
+            className="field"
           />
           <input
             type="password"
@@ -89,20 +90,20 @@ export default function Register() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-brand-400"
+            className="field"
           />
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-brand-500 hover:bg-brand-400 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors"
+            className="btn-pen w-full"
           >
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
 
-        <p className="text-center text-gray-500 text-sm mt-6">
+        <p className="text-center text-pen-soft text-sm mt-6">
           Have an account?{' '}
-          <Link to="/login" className="text-brand-400 font-semibold">
+          <Link to="/login" className="link font-bold">
             Sign in
           </Link>
         </p>
