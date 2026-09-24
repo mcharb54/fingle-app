@@ -5,6 +5,7 @@ import crypto from 'crypto'
 import { prisma } from '../lib/prisma.js'
 import { AuthRequest } from '../middleware/auth.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js'
+import { verifyTurnstile } from '../services/turnstile.js'
 
 function signToken(userId: string, tokenVersion: number): string {
   return jwt.sign({ userId, tokenVersion }, process.env.JWT_SECRET!, { expiresIn: '30d' })
@@ -37,7 +38,12 @@ function sanitizeUser(user: {
 const USERNAME_RE = /^[A-Za-z0-9._-]{2,20}$/
 
 export async function register(req: Request, res: Response): Promise<void> {
-  const { username, email, password } = req.body as { username?: string; email?: string; password?: string }
+  const { username, email, password, turnstileToken } = req.body as {
+    username?: string
+    email?: string
+    password?: string
+    turnstileToken?: string
+  }
 
   if (!username || !email || !password) {
     res.status(400).json({ error: 'username, email and password are required' })
@@ -49,6 +55,14 @@ export async function register(req: Request, res: Response): Promise<void> {
   }
   if (password.length < 8) {
     res.status(400).json({ error: 'Password must be at least 8 characters' })
+    return
+  }
+
+  // Bots were signing strangers' addresses up to flood them with verification emails
+  const forwardedFor = req.headers['x-forwarded-for']
+  const clientIp = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(',')[0]?.trim()
+  if (!(await verifyTurnstile(turnstileToken, clientIp))) {
+    res.status(400).json({ error: "We couldn't confirm you're a person. Please try again.", code: 'turnstile' })
     return
   }
 

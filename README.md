@@ -54,6 +54,7 @@ Everything else is local on purpose:
 - **JWT secret**: generated locally.
 - **VAPID push keys**: generated locally. Push notifications work on `localhost` in Chrome.
 - **Email**: no Resend key. Verification and password-reset links are printed in the backend console.
+- **Bot check**: Cloudflare Turnstile's test keys, which always pass, so the real widget and server check run locally.
 
 **Don't run the dev backend with `railway run`.** It injects the production `DATABASE_URL`, and `dotenv` won't override a variable that's already set. As a guard, `npm run dev` and `npm run db:seed` refuse to start against a non-local database unless `ALLOW_REMOTE_DB=1` is set.
 
@@ -66,6 +67,17 @@ npm run dev            # startup backfills run here, against the copy
 ```
 
 The copy has push subscriptions and email/reset tokens removed, so local testing can't notify real users. Log in with your real account. If the database service isn't named `Postgres`, set `RAILWAY_DB_SERVICE=<name>`. The service needs a public TCP proxy (`DATABASE_PUBLIC_URL`).
+
+### Sign-up bot protection (Cloudflare Turnstile)
+
+Sign-up requires a Turnstile token, checked on the server before an account is created or any email is sent. Bots had been signing strangers' addresses up to flood their inboxes with verification emails.
+
+| Where | Variable | Value |
+|---|---|---|
+| `frontend/.env.production` | `VITE_TURNSTILE_SITE_KEY` | The widget's site key (public, safe to commit) |
+| Railway backend service | `TURNSTILE_SECRET_KEY` | The widget's secret key (never commit) |
+
+While `TURNSTILE_SECRET_KEY` is unset, the server skips the check and logs a warning, so the two can be deployed in either order.
 
 ### Other commands
 

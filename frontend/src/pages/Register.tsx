@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../api'
 import { useAuth } from '../context/AuthContext'
+import Turnstile, { turnstileEnabled } from '../components/Turnstile'
 import Logo from '../components/ui/Logo'
 import HandGlyph from '../components/ui/HandGlyph'
 
@@ -14,17 +15,21 @@ export default function Register() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [turnstileReset, setTurnstileReset] = useState(0)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const { token, user } = await authApi.register(username, email, password)
+      const { token, user } = await authApi.register(username, email, password, turnstileToken)
       login(token, user)
       setRegisteredEmail(email)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
+      // Tokens are single-use, so any failed attempt needs a fresh one
+      setTurnstileReset((n) => n + 1)
     } finally {
       setLoading(false)
     }
@@ -94,9 +99,10 @@ export default function Register() {
             minLength={8}
             className="field"
           />
+          <Turnstile action="register" onToken={setTurnstileToken} resetSignal={turnstileReset} />
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (turnstileEnabled && !turnstileToken)}
             className="btn-pen w-full"
           >
             {loading ? 'Creating account…' : 'Create Account'}
